@@ -43,6 +43,9 @@ SOFTWARE.
 #define LED_TOPOLOGY_RESISTOR		1
 #define LED_TOPOLOGY_DRIVER			2
 
+#define SFX_FILTER_NONE				1
+#define SFX_FILTER_LOWPASS			2
+
 static const int EEPROM_SIZE = 512;
 
 static const int32_t NOMINAL_VOLTAGE 	= 3700;
@@ -115,6 +118,7 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	#define SABER_CRYSTAL			80
 	#define SABER_CRYSTAL_LOW		24
 	#define SABER_DISPLAY
+	#define SFX_FILTER 				SFX_FILTER_LOWPASS
 
 	// FIXME TUNE ALL
 	static const int32_t UVOLT_MULT = 6680;
@@ -147,6 +151,7 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	#define SABER_CRYSTAL			80
 	#define SABER_CRYSTAL_LOW		16
 	#define SABER_UI_BRIGHTNESS		8
+	#define SFX_FILTER 				SFX_FILTER_LOWPASS
 
 	static const int32_t UVOLT_MULT = 6750;
 	#define ID_STR "Silver Shock Custom RGB Cree XPE2"
@@ -203,6 +208,7 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	//#define SABER_NUM_LEDS 			4
 	//#define SABER_UI_START  		0
 	//#define SABER_UI_BRIGHTNESS		8
+	#define SFX_FILTER 				SFX_FILTER_LOWPASS
 
 	static const int32_t UVOLT_MULT = 6750;
 	#define ID_STR "Tano Cree XPE2 GGB"

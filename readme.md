@@ -482,6 +482,6 @@ The saber has 8 palettes. The palette is a combination of:
 In general direction, cleaning up the existing solution and adding support
 for more chipsets is desirable. As I add features to sabers I build, I'll
 add them here. There is now at least one other contributor, and that
-feedback is being incorporated as well.
+feedback is being incorporated as well. 
 
 ![Image of Saber](img/BladeTeal.jpg)

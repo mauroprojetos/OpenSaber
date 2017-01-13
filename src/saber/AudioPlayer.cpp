@@ -12,10 +12,18 @@
 AudioPlaySdWav      playWav;
 AudioMixer4         mixer;
 AudioOutputAnalog   dac;
-AudioFilterBiquad   biquad;
-AudioConnection     patchCord0(playWav, biquad);
-AudioConnection     patchCord1(biquad, mixer);
-AudioConnection     patchCord2(mixer, 0, dac, 0);
+
+#if (SFX_FILTER == SFX_FILTER_NONE)
+    AudioConnection     patchCord0(playWav, mixer);
+    AudioConnection     patchCord2(mixer, 0, dac, 0);
+#elif (SFX_FILTER == SFX_FILTER_LOWPASS)
+    AudioFilterBiquad   biquad;
+    AudioConnection     patchCord0(playWav, biquad);
+    AudioConnection     patchCord1(biquad, mixer);
+    AudioConnection     patchCord2(mixer, 0, dac, 0);
+#else
+    #error No SFX_FILTER defined.
+#endif
 
 AudioPlayer::AudioPlayer() {
     m_muted = false;
@@ -28,7 +36,9 @@ AudioPlayer::AudioPlayer() {
     pinMode(PIN_AMP_EN, OUTPUT);
     digitalWrite(PIN_AMP_EN, LOW);
 
+#if (SFX_FILTER == SFX_FILTER_LOWPASS)
     biquad.setLowpass(0, 4000, 0.707);
+#endif
 }
 
 void AudioPlayer::init() {
