@@ -281,7 +281,7 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	#define PIN_EMITTER_RED   23
 #elif (SABER_MODEL == SABER_MODEL_TANO)
 	/* Teensy 3.2 with Prop Shield */
-	/* Wrap around battery design. */
+	/* Wrap around battery design. v7b */
 	#define PIN_RX1           0
 	#define PIN_TX1           1
 	#define PIN_ACCEL_IRQ	  2	// fixed
