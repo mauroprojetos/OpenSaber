@@ -62,8 +62,6 @@ static const float    GFORCE_RANGE            = 4.0f;
 static const float    GFORCE_RANGE_INV        = 1.0f / GFORCE_RANGE;
 
 bool     paletteChange  = false;    // used to prevent sound fx on palette changes
-uint32_t reflashTime    = 0;
-bool     flashOnClash   = false;
 float    maxGForce2     = 0.0f;
 uint32_t lastMotionTime = 0;    
 uint32_t meditationTimer = 0;  
@@ -199,7 +197,7 @@ void setup() {
         buttonB.setClickHandler(buttonBClickHandler);
         buttonB.setReleaseHandler(buttonBReleaseHandler);
         buttonB.setHoldHandler(buttonBHoldHandler);
-        buttonB.setPaletteressHandler(buttonBPressHandler);
+        buttonB.setPressHandler(buttonBPressHandler);
     #endif
 
     #ifdef SABER_TWO_BUTTON
@@ -245,10 +243,6 @@ void setup() {
         dotstarUI.SetBrightness(SABER_UI_BRIGHTNESS);
     #endif
     Log.event("[saber start]");
-}
-
-uint32_t calcReflashTime() {
-    return millis() + random(500) + 200;
 }
 
 int vbatToPowerLevel(int32_t vbat)
@@ -304,12 +298,14 @@ void buttonAReleaseHandler(const Button& b)
         }
     #endif
 
+#ifdef MEDITATION_MODE
     if (uiMode.mode() == UIMode::MEDITATION && meditationTimer) {
         Log.p("med start").eol();
         #ifdef SABER_SOUND_ON
         sfx.playSound(SFX_SPIN, SFX_OVERRIDE, true);
         #endif
     }
+#endif
 }
 
 #ifdef SABER_TWO_BUTTON
@@ -380,8 +376,7 @@ void buttonBHoldHandler(const Button&) {
             #ifdef SABER_SOUND_ON
                 sfx.playSound(SFX_USER_HOLD, SFX_OVERRIDE);
             #endif
-            flashOnClash = true;
-            reflashTime = calcReflashTime();
+            bladeState.enableFlash(true);
         }
     }
     else if (bladeState.state() == BLADE_OFF) {
@@ -396,12 +391,12 @@ void buttonBHoldHandler(const Button&) {
 }
 
 void buttonBReleaseHandler(const Button& b) {
-    if (flashOnClash && bladeState.state() != BLADE_OFF) {
+    if (bladeState.flashEnabled() && bladeState.state() != BLADE_OFF) {
         #ifdef SABER_SOUND_ON
             sfx.playSound(SFX_IDLE, SFX_OVERRIDE);
         #endif
+        bladeState.enableFlash(false);
     }
-    flashOnClash = false;
     if (ledB.blinking()) {
         ledB.blink(0, 0);
     }
@@ -619,15 +614,6 @@ void loop() {
             sketcher.Push(gForce);
         #endif
         maxGForce2 = 0;
-    }
-
-    if (reflashTime && msec >= reflashTime) {
-        reflashTime = 0;
-        if (flashOnClash && bladeState.state() == BLADE_ON) {
-            Log.event("[FlashOnClash]");
-            bladeState.change(BLADE_FLASH);
-            reflashTime = calcReflashTime();
-        }
     }
 
     if (displayTimer.tick()) {

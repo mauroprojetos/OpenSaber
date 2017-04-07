@@ -15,7 +15,7 @@ enum {
     BLADE_OFF,
     BLADE_IGNITE,
     BLADE_ON,
-    BLADE_FLASH,
+    BLADE_FLASH,        // private; set by the blade
     BLADE_RETRACT
 };
 
@@ -39,11 +39,18 @@ public:
         return m_startTime;
     }
 
+    void enableFlash(bool enable);
+    bool flashEnabled() const { return m_flash; }
+
     void process(Blade* blade, const SaberDB& saberDB, uint32_t time);
 
 private:
+    uint32_t calcReflashTime() const;
+
+    bool     m_flash = false;    
     uint8_t  m_currentState = BLADE_OFF;
     uint32_t m_startTime = 0;
+    uint32_t m_reflashTime = 0;
 };
 
 enum class UIMode {

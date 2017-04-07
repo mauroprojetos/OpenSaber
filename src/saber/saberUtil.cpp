@@ -47,6 +47,15 @@ void BladeState::process(Blade* blade, const SaberDB& saberDB, uint32_t time)
     static const uint32_t FLASH_TIME = 120;
     SFX* sfx = SFX::instance();
 
+    if (m_reflashTime && millis() >= m_reflashTime) {
+        m_reflashTime = 0;
+        if (m_flash && m_currentState == BLADE_ON) {
+            Log.event("[FlashOnClash]");
+            change(BLADE_FLASH);
+            m_reflashTime = calcReflashTime();
+        }
+    }
+
     switch (state()) {
     case BLADE_OFF:
         break;
@@ -100,6 +109,31 @@ void BladeState::process(Blade* blade, const SaberDB& saberDB, uint32_t time)
         ASSERT(false);
         break;
     }
+}
+
+
+void BladeState::enableFlash(bool enable)
+{
+    if (enable) {
+        if (m_currentState == BLADE_ON) {
+            m_flash = true;
+            m_reflashTime = calcReflashTime();
+            change(BLADE_FLASH);
+        }
+    }
+    else {
+        m_flash = false;
+        m_reflashTime = 0;
+        if (m_currentState == BLADE_FLASH) {
+            change(BLADE_ON);
+        }
+    }
+}
+
+
+uint32_t BladeState::calcReflashTime() const 
+{
+    return millis() + random(500) + 200;
 }
 
 
