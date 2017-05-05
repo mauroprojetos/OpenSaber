@@ -38,7 +38,7 @@ SOFTWARE.
 #define SABER_MODEL_BO				5	// 2 button prop shield
 #define SABER_MODEL_TANO 			6
 
-#define SABER_MODEL 				SABER_MODEL_GECKO
+#define SABER_MODEL 				SABER_MODEL_TANO
 
 #define LED_TOPOLOGY_RESISTOR		1
 #define LED_TOPOLOGY_DRIVER			2
@@ -88,7 +88,7 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	static const int VOLUME_1 = 15;
 	static const int VOLUME_2 = 50;
 	static const int VOLUME_3 = 120;
-	static const int VOLUME_4 = 200;
+	static const int VOLUME_4 = 200;	
 
 #elif SABER_MODEL == SABER_MODEL_BLACK
 	#define LED_TOPOLOGY 				LED_TOPOLOGY_RESISTOR
@@ -120,7 +120,6 @@ static const int32_t LOW_VOLTAGE 		= 3500;
 	static const int VOLUME_2 = 50;
 	static const int VOLUME_3 = 120;
 	static const int VOLUME_4 = 200;
-
 
 #elif SABER_MODEL == SABER_MODEL_SHOCK
 	#define PCB_VERSION 				PCB_VERSION_5
@@ -380,57 +379,6 @@ enum {
 
 static const float DEFAULT_G_FORCE_MOTION = 1.3f;
 static const float DEFAULT_G_FORCE_IMPACT = 2.2f;
-
-/*
-Connections
-	SaberZ
-		Battery
-			Bat+
-			Bat-
-		Audio
-			VBat
-			Aground x 2
-			DAC
-		Accel (LIS3DH)
-			Vcc
-			SCL
-			SDA
-			Ground
-		Crystal
-			R
-			G
-			B
-			Ground
-
-	Stack
-		Power
-			Bat+
-			V5
-			Ground (V5)
-			Ground (Bat-)
-
-		Oled
-			Vcc
-			MOSI
-			CLCK
-			CS
-			RST
-			D/C
-			Ground
-
-	Both
-		SD
-			Vcc
-			MOSI
-			MISO
-			CLCK
-			CS
-			Ground
-		USB
-			D+
-			D-
-			Ground
-*/
 
 #endif // PINS_HEADER
 
