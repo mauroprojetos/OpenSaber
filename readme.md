@@ -1,6 +1,6 @@
 **Welcome to Open Saber**
 
-The goal of open saber is provide source code, circuit diagrams, and 
+The goal of open saber is provide source code, circuit diagrams, and
 documentation for making an Arduino (and compatible) based lightsaber.
 The focus is on the internals of the saber, not how to build the case.
 
@@ -9,16 +9,29 @@ with Arduinos. There are certainly commercial solutions to saber electronics,
 but if you want to build and contribute to the code and internals, this site
 is for you!
 
+Making a lightsaber is fundamentally a lot of simple things (the combination
+of which creates complexity) fitted into a small space (which creates a
+design challeng.) As a warning, it's probably impossible to build a saber
+for less than you can buy one, unless you already have the tools and
+relevant experience.
+
 The information and documentation assume a basic knowledge of Arduinos,
 electronics, soldering, etc.
 
-In 2017, the design switch from through hole components, which have wires
-and can be fairly easily hand soldered, to SMD components, which need
-to be flow soldered in an oven. The current code uses only the SMD
-approach. If you are interested in the through hole approach, check out
-the source at FIXME
+There have been several design approaches:
+1. Discrete breakout boards chained together.
+2. Custom printed circuit boards (PCBs) with through hole components
+3. Custom PCBs with SMD components
 
-![Image of Saber](img/GeckoOnMat.jpg)
+It is too difficult to follow the docs if the past versions are included;
+therefore, this doc only covers the current approach. This uses custom
+PCBs and SMD components. I don't think there's a practical way to solder
+SMD components without using flow soldering in a (relatively cheap) toaster
+oven. Many components are actually easier to place with SMD, but I do
+find it challenging to solder ICs (the accelerometer in particular)
+reliably and ofter have to "fix up" a board with an SMD heat gun.
+
+FIXME: new image
 
 The Open Saber site / repo is 3 things:
 - Overview of the (electrical) design of a saber.
@@ -29,16 +42,18 @@ The Open Saber site / repo is 3 things:
 An Open Saber electronics in action here: https://youtu.be/9_-Rfe4UBJM.
 
 ## Features:
-- Support for 3 LED RGB "any color" saber 
+- Support for 3 LED RGB "any color" saber
 - Flash on clash
-- Motion and impact detection
+- Simple motion and impact detection
 - Sound font support
-- Constant (average) current to LEDs
+- Constant (average) current to LEDs, so that color & power stay constant
+  with battery level changes
 - Battery level tracking and indicator
-- Command set to program saber with computer
+- Command set to adjust saber setting from a computer
 - Recharge port / kill key port
 - SPI support for secondary display, etc.
 - Dotstar support for UI, etc.
+- Support for displays (SmartLED, 7-Segment, matrix)
 
 ## Status & Direction
 
@@ -52,26 +67,29 @@ of a Teensy Microcontroller.
 I use the largest possible SMD components to make it as straightforward
 as possible for a human to solder. They are still *small*.
 
-Generally speaking the shields sit on a Teensy 3.5. You can also use a
+Generally speaking the PCB shield sit on a Teensy 3.5. You can also use a
 Teensy 3.2, but you need to connect an SD card on the SPI interface.
-(The 3.2 does not have an integrated SD card.)
+(The 3.2 does not have an integrated SD card.) There is work in progress
+to support the Adafruit Itsy-Bitsy.
 
-- Shield V3: Does *not* have integrated LED resistors. The emitter LED
-  needs to have the correct resistors soldered in place.
-- Shield V4: Has space for 3 through hole, small form factor, 1W 
-  resistors. This can be much more tidy, but it's a longer board.
+OpenSaber puts the resistor for the emitter LED on the PCB board; this
+is somewhat non-standard, but there is space for it, and it's much more
+space efficient and reliable to have the resistors on the PCB vs. packed in
+the front of the saber somewhere.
 
 Note that many commits to the github repo are parts for a 3D
-printer. While you are welcome to use them, the focus of 
+printer. While you are welcome to use them, the focus of
 this site is the electronics, which can be re-used from saber
 to saber. The physical parts are unique to each saber (unless
-you use a standard case, of course.)
+you use a standard case, of course.) I've recently generalized the OpenScad
+code for the 3D printer so if someone starts to use that it can be
+documented.
 
-![Image of Saber](img/Gecko3.jpg)
+FIXME: image of saber
 
 ## Alternate Approaches
 
-- http://www.rocket-props.com/the-open-source-saber-project uses some 
+- http://www.rocket-props.com/the-open-source-saber-project uses some
   interesting ideas, including SMD componends and using buck-pucks.
   Nice approach, very different from this one.
 - The Teensy Based Lightsaber http://fredrik.hubbe.net/lightsaber/
@@ -87,11 +105,11 @@ I am not affiliated with any of these, but have found them all useful.
   has all things saber. Often just abbreviated TCSS.
 
 ### How To
-- Genesis Custom Sabers Shop Secrets: 
+- Genesis Custom Sabers Shop Secrets:
   https://www.youtube.com/playlist?list=PLBZx-DMVqx7druzwlBkXoZZhd30_0LXNS
   Lots of good info on wiring and techniques.
 - "So you want to build a LED saber?" Different design than Open Saber,
-  but still a nice overview: 
+  but still a nice overview:
   http://forums.thecustomsabershop.com/showthread.php?2025-Step-2-I-have-decided-to-make-a-LED-saber
 
 ### Saber bodies
@@ -116,45 +134,46 @@ I am not affiliated with any of these, but have found them all useful.
 
 ## Architecture
 
-An overview of the parts of a saber, with specific examples of the Gecko. 
-
-Technically speaking, to organize you electrical thoughts, a saber is a *very* 
-fancy flashlight. 
+An overview of the parts of a saber. Technically speaking, to organize your
+ electrical thoughts, a saber is a *very* fancy flashlight.
 
 In roughly front to back order, an saber is:
 
 1.  A **blade holder**. (1" is standard.)
 2.  A **lens** to focus the LED. The lens is bought to match the LED,
     and narrower is usually better.
-3.  3 **LEDs** in the 1-Watt each range. Red, green, blue, and 
+3.  3 **LEDs** in the 1-Watt each range. Red, green, blue, and
     sometimes white or another color. I like both the Luxeon and Cree XPE-2.
-    I haven't experimented with the 12W LEDs yet; electrically
+    You generally buy '3-up' configuration which has a Red, Green, and Blue
+    LED on a heat conducting die.
+    (I haven't experimented with the 12W LEDs yet; electrically
     most of the designs should handle it, but the power from the battery
-    and the cooling are potential issues.
-4.  A **heat sink** for cooling the LED. Often part of the saber body. 
-    TCSS provides them as well. LEDs are kept to 350ma - 400ma each (although 
-    you can change this.) Many LED's, if cooled correctly, can take considerably
-    more power. Conversly, many sabers with poor heat sinking fail over time
-    as their LEDs burn out.
+    and the cooling are potential issues.)
+4.  A **heat sink** for cooling the LED. Often part of the saber body.
+    TCSS provides them as well. LEDs are kept to 350ma - 400ma each (although
+    you can change this.) Many LED's, if cooled correctly, can take
+    considerably more power. Conversly, many sabers with poor heat sinking
+    fail over time as their LEDs burn out.
 5.  **Power and Auxillary** switches (momentary on, typically 12mm). The
     code supports both a one button version and a two button version. Both
     versions support the same features except "clash sound" which is only
     supported in the 2 button version. If the switches have LED rings, the
-    microcontroller will use them for power / volume display.
+    microcontroller will use them for power / volume display. (Note that the
+    one button configuration is much more common and better supported.)
 6.  **Electronics**. Please see the full discussion below.
 7.  **Power port**. Typically 2.1 mm. If plugged into a Li-Ion charger,
     charges the battery (and disconnects the microcontroller). If a kill key
     is inserted, turns off the saber.
-8.  **SD Card**. A simple SD card breakout board or integrated card. This is 
-    where the sound fonts are stored. Note that the saber code WILL NOT work 
+8.  **SD Card**. A simple SD card breakout board or integrated card. This is
+    where the sound fonts are stored. Note that the saber code WILL NOT work
     without sound fonts stored and named properly on the MicroSD card. Also,
     if using the Teensy 3.5, the SD card is integrated.
-9.  3.7v Li-Ion **battery**. TCSS and Adafruit both sell good, small,  long 
+9.  3.7v Li-Ion **battery**. TCSS and Adafruit both sell good, small,  long
     lasting batteries. Need something rated 2000mAh or better. Amazon as well
-    carries protected Li-Ion batteries. (The Panasonic NCR18650B 18650 has 
+    carries protected Li-Ion batteries. (The Panasonic NCR18650B 18650 has
     been recommended.)
-10. **Speaker**. TCSS and Adafruit carry them, as well as Mouser and Digikey. 
-    (I've had a lot of inexpensive speakers arrived damaged from China, so I 
+10. **Speaker**. TCSS and Adafruit carry them, as well as Mouser and Digikey.
+    (I've had a lot of inexpensive speakers arrived damaged from China, so I
     do recommend a reputable supplier.)
 
 ## Directory Organization
@@ -164,12 +183,11 @@ In roughly front to back order, an saber is:
     - saber - code for the saber itself
   - circuits
     - pcb - printed circurit board diagrams
-  - img - images and diagrams used by the docs
 
 ## Wiring
 
 FIXME new wiring diagram
-  
+
 ### LEDs
 
 LEDs are used in a bunch of places. Specific concerns are discussed
@@ -180,14 +198,15 @@ which circuit it is connected to.
 A LED calculator: http://led.linear1.org/1led.wiz
 
 This calculator will select the next higher standard resistor,
-which is almost always what you want. However, if you want to 
+which is almost always what you want. However, if you want to
 calculate the exact resistance:
 
 R (ohms) = (Vs - Vf) / amps_through_led
 
 Specific LED usage:
 
-- The high power LED that lights the blade. Powered by the battery
+- The "emmitter LED" is the high power LED that lights the blade.
+  Powered by the battery
   at 4.2 to 3.5 volts. Typcially about 1 Watt
   (or higher) per channel, and the resistors are typically 1 Watt.
   Typically a Vf of about 3.0 and expects 350mA of power. But
@@ -196,7 +215,7 @@ Specific LED usage:
   resistor and specs into the `pins.h` file, the microcontroller
   will use PWM to keep the power at the specified level (or less.)
   This means you can sometimes round down on the resistor values:
-  for example, if the `perfect` resistor is 1.6 ohms, and the 
+  for example, if the `perfect` resistor is 1.6 ohms, and the
   calculator recommends 1.8 ohms, you might use a 1.5ohm to give
   the microcontroller a little more "range" to work with.
 
@@ -207,34 +226,40 @@ Specific LED usage:
 
 - DotStar smart LEDs. Used for user indicators. (Power meter,
   volume, etc.) Driven by the prop shield, requires no resistors.
-  (The provided wiring diagram does not include this.)
+  In general, once you need one RGB indicator light, it's more convenient
+  and space efficient to switch to smart LEDs.
 
 ### Power Bus
 
-The saber uses a common ground. There are 4 positive power voltages. Please
-be aware of the power supply. Shorts between the supplies can cause big
-issues. It's very important to not "cross" the power supplies or use the 
-wrong one. 
+The saber uses a common ground. There are (potentially) 4 positive power
+voltages. Please be aware of the power supply. Shorts between the supplies
+can cause big issues. It's very important to not "cross" the power supplies
+or use the wrong one.
 
 - Vbat, the battery power supply. Ranges from about 4.2 - 3.5V. Vbat delivers
-  a **lot** of power, up to about 1A (1000mA) to the audio and LEDs. It also
+  a *lot* of power, up to about 1A (1000mA) to the audio and LEDs. It also
   powers the micro-controllers.
-- Vcc, a 3.3V, regulated, constant, low-amp supply. Powers the switch LEDs and 
-  other indicators. Vcc is provided by the microcontroller.
-- V5. If the propshield as well as Dotstar LEDs are being used, then there
-  should be a 5 volt power supply. I often use a super-tiny booster 
-  (from Polulu) to go from Vbat to V5 to power the microcontroller.
+- Vcc, a 3.3V, regulated, constant, low-amp supply. Powers the switch LEDs and
+  other indicators. Vcc is provided by the microcontroller. Note that,
+  generally speaking, Vcc does not provide enough power for smart LEDs.
+- SmartLED / Dotstart / Neopixel. SmartLEDs often have their own power.
+  One solution is to use a booster, and run them at 5v. Another approach
+  is to run them at the battery power. In any case, the PCB should (and does)
+  set the control & clock line power to match the battery. I generally find
+  it's easier, and works just fine, to run the SmartLEDs at battery power.
+  But it's important to keep aware that the logic level (and possibly supply
+  power) of the SmartLEDs differ from the rest of the system.
 - USB. When the saber is plugged into USB, there is Yet Another power supply.
   WARNING: it is VERY easy to short a Teensy by plugging in a standard USB
   cable. This causes a short between the 5V USB power supply and the 3.7V
   Li-Ion battery. This will destroy the saber. Your options:
     - Cut the USB power on the Teensy board. I don't recommend this; it
       seems much too easy to "reconnect" via a short (metal dust?) or
-      thermal expansion. I've burned out 3 microcrotrollers due to 
+      thermal expansion. I've burned out 3 microcrotrollers due to
       mysterious issues when connecting USB.
     - Cut the power (red) line in the USB cable. Much more reliable...but
-      you must *always* use the modified cable. I mark the USB port in 
-      red paint and the cables with red tape.
+      you must *always* use the modified cable. I mark the cables with red
+      tape.
 
 #### Power Port
 Convention, and the current design, uses a 2.1mm recharge jack. Wiring of the
@@ -244,27 +269,25 @@ jack is such that:
 3. the circuit is live when nothing is plugged in, which is also
    indicated by the ring LED if you use that type of momentary switch.
 
-This is useful, and convention for almost all saber designs, but a little 
-weird. For it to work (safely) for case #1, the grounded sleeve of the recharge 
-port should be isolated from "true ground" and the case of the saber. You need 
+This is useful, and convention for almost all saber designs, but a little
+weird. For it to work (safely) for case #1, the grounded sleeve of the recharge
+port should be isolated from "true ground" and the case of the saber. You need
 to be careful with a metal port, or use an insulated plastic one.
 
-#### 3V or 7V
+#### Power Suppy: 3.7v Li-Ion
 
-Sabers run off 4 AAA, 3.7 Li-Ion, or 7.4 Li-Ion. OpenSaber is designed 
+Sabers run off 4 AAA, 3.7 Li-Ion, or 7.4 Li-Ion. OpenSaber is designed
 around a 3.7 Li-Ion.
 
 Why?
-
-3.7v
-- Rechargable 
-- Smaller than 7.4, competitive with AAA
+- Rechargable
+- Smaller than 7.4v, the size is competitive with AAA
 - Efficient for resistors on LEDs. A typical LED forward voltage is 2-3 volts,
   so overall efficiency is about 80%.
 - Buck/Boost converters make the 7.4 supply less interesting for the
-  microcontroller and DotStars. 
+  microcontroller and DotStars.
 
-Note that the actual battery voltage varies significantly, 
+Note that the actual battery voltage varies significantly (from 3.5 to 4.2V)
 and the control circuit accounts for that.
 
 ### Electronics
@@ -273,46 +296,46 @@ The electronics are the heart of the OpenSaber project. The files are
 ExpressPCB files. I regret the proprietary solution, but I've been happy
 thusfar with the service.
 
-The shield - which is the PCB that sits on top of the Teensy - collects 
+The shield - which is the PCB that sits on top of the Teensy - collects
 together 1) an audio amplifier, 2) a DotStar LED controller,
-3) an accelerometer, and 4) and emitter LED power onto one board. It also 
-provides an SPI inteface connection for an external SD card, display, or 
+3) an accelerometer, and 4) and emitter LED power onto one board. It also
+provides an SPI inteface connection for an external SD card, display, or
 similar.
 
-- A **microcontroller**, the Teensy 3.2 or 3.5, is the micro-computer
+- A **microcontroller**, the Teensy 3.5, is the micro-computer
   that runs the software. It controls the blade state, the color
   of the LEDs, the color of the blade, and does audio processing.
 
   It is soldered to a shield PCB. The microcontroller
   can be programmed directly via USB. The 3.5 includes an integrated
-  SD card (handy!), but an SD breakout board can be connected via
-  the SPI interface.
+  SD card.
 
-- **LED amplifier** The LED uses a 3 channel, 350ma (average) controller.
+- **LED amplifier** The LED uses a 3 channel, 350ma (configurable) controller.
   The microcrontroller uses an amplifier bridge made of 3 MOSFETS
   to drive the LEDs. Voltage monitoring is used to keep the LED current
   constant. You may change the LED current in the software.
 
-- **LED** a 1 WATT Cree or Luxeon LED in a star configuration is typical.
+- **LED** a 1-2 W Cree or Luxeon LED in a star configuration is typical.
   The LED uses a common anode, as well as 3 control lines: Red, Green, and
-  Blue. They 4 wires are connected from the LED to the front side of the 
+  Blue. They 4 wires are connected from the LED to the front side of the
   emitter electronics.
 
 ### Switches
 
-The code assumes 1 or 2 switches.
+The code supports 1 or 2 switches. At this point, the one switch
+configuration is much more tested.
+
+#### One Switch
+
+Tap selects mode: "ready", "palette", "volume". Press-and-hold ignites
+the blade or changes the setting.
+
+#### Two Switch
+
 - A: the main switch. Hold for power, tap for battery level indicator.
 - B: the auxiliary switch. When the blade is on, tap for "blaster effect",
   hold for "lockup effect". When the blade is off, hold to toggle sound.
   When the sound turns on, hold for 1-4 flashes to set volume.
-
-In a 2 switch configuration, you may also (when the blade is on) 
-hold auxillary and then tap the main switch to cycle through the blade 
-color / sound palettes.
-
-In a 1 switch configuration, a tap mode switches between "blade", "palette",
-and "volume". Long press either turns the blade on/off, or selects the 
-palette or volume.
 
 ### Audio
 
@@ -335,7 +358,7 @@ sound font will confuse the sound output.
 - "IDLE", "HUM" the background drone
 - "IMPACT", "CLASH" is the sound of impacting another saber
 - "MOTION", "SWING" is the basic saber motion sound
-- "USRHOLD", "LOCKUP" is a user defined long sound, typically the sound 
+- "USRHOLD", "LOCKUP" is a user defined long sound, typically the sound
   when 2 sabers are held together.
 - "USRTAP", "BLASTER" is a user defined short sound, typically the sound
   of parrying blaster fire.
@@ -351,7 +374,7 @@ you particular saber in "pins.h".
 ### Libraries
 
 I feel guilty about every forked library; but it's hard to
-work around API issues. Theser are minor forks, at least.
+work around API issues. These are minor forks, at least.
 
 #### Accelerometer
 
@@ -371,21 +394,21 @@ https://github.com/leethomason/OLED_SSD1306
 
 'pins.h' contains the wiring pinout, documentation, and features switches.
 The tricky #define is the SERIAL_DEBUG macro. If on, you can connect
-the USB header and debug the saber. However, without a USB connection, **the 
+the USB header and debug the saber. However, without a USB connection, **the
 saber won't work if SERIAL_DEBUG = 1**. The serial port won't be found,
 the timeouts kick in, and the saber essentially "locks up". It's a great to
 be able to debug, but remember to SERIAL_DEBUG=0 and upload that sketch
 when you are done.
 
-Pins contains a bunch of other macros, which you can disable when you 
+Pins contains a bunch of other macros, which you can disable when you
 build the saber, and turn on one by one.
 
-'pins.h' also contains the description of the LED: forward voltage, 
+'pins.h' also contains the description of the LED: forward voltage,
 resistor values, etc. You need to set this for your particular build.
 
 Note that there is an equation for UVOLT_MULT which controls the volt
 meter. There's some variability; once the saber is assembled, I suggest
-adjusting this value by checking computed vs. measured values. (Type 'vbat' on 
+adjusting this value by checking computed vs. measured values. (Type 'vbat' on
 the command line to get the current computed value.)
 
 ##### "Constant Current" and tuning the voltmeter.
@@ -408,7 +431,7 @@ I: milli-amps of power
 R: the resistor value you used
 
 And finally the UVOLT_MULT. It's a little tedious to calculate,
-and doesn't turn out to be useful to do so. Once your saber 
+and doesn't turn out to be useful to do so. Once your saber
 is up and running, wait until it hits the 3.7 volt range.
 Measure the power with a voltmeter. Run `vbat` on the saber
 command line to get the measured value. Adjust UVOLT_MULT,
@@ -416,14 +439,14 @@ and recompile.
 
 UVOLT_MULT' = UVOLT_MULT * V_measured / vbat
 
-And then re-check the `vbat` just to be sure. It should 
+And then re-check the `vbat` just to be sure. It should
 be close, but doesn't need to be exact.
 
 ### Command line
 
 If you connect via USB, you can open the COM port to the saber and
 issue commands. Do this by opening the Serial Monitor and entering
-comminds in the terminal that appears. This works irrespective of 
+comminds in the terminal that appears. This works irrespective of
 SERIAL_DEBUG.
 
 The saber has 8 palettes. The palette is a combination of:
@@ -432,16 +455,16 @@ The saber has 8 palettes. The palette is a combination of:
 - sound font
 
 - `bc` will return the current blade color for current palette. `bc #rrggbb`
-  will set the blade color for the current palette. It will also show the 
-  current draw of the color. I generally keep it at 1000mA or less, although
-  you could theoretically draw about 1/2 the batter capacity. Do keep in mind
-  how well your LED is able to sink heat.
+  will set the blade color for the current palette. It will also show the
+  current power draw of the color. I generally keep it at 1000mA or less,
+  although you could theoretically draw about 1/2 the batter capacity. Do
+  keep in mind how well your LED is able to sink heat.
 - `ic` gets / sets the impact color or "blade flash".
 - `pal` returns the current palette. `pal <0-7>` sets the current palette.
 - `font` gets/sets the sound font in use.
 - `fonts` lists the available sound fonts.
 - `vol` and `vol <0-204>` gets and sets the current volume.
-- `vbat' is the current battery level, in milli-volts. 4200 is fresh, 3700 is 
+- `vbat` is the current battery level, in milli-volts. 4200 is fresh, 3700 is
   nominal, 3500 is low. This is read from the Vmeter of the emitter circuit.
 - `util` is the current utilization of each channel. It is computed from Vbat.
   `90 90 76` means that the saber will use 90% red, 90% green, and 76% of
@@ -457,8 +480,8 @@ The saber has 8 palettes. The palette is a combination of:
 - `accel` prints the current accelerometer output. Useful for checking
   calibration and that your axis are set up correctly.
 - `test` runs the saber test suite.
-- 'play' plays a sound on the SD card. You need the full name: 'play demichel.wav'
-   or 'play bespin2/hum.wav'
+- `play` plays a sound on the SD card. You need the full name:
+  `play demichel.wav` or `play bespin2/hum.wav`
 
 ## Future Direction
 
