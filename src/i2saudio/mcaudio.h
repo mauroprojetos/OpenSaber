@@ -36,7 +36,7 @@ struct AudioBufferData {
     uint32_t dataAvailable = 0;
     int32_t* buffer = 0;
     
-    int fillBuffer(wav12::Expander& expander, int32_t volume);
+    int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop);
 
     void reset() { status = AUDBUF_EMPTY; dataAvailable = 0; }
 };
@@ -72,7 +72,7 @@ public:
     virtual void init();
     bool isInitialized() const { return _instance != 0; }
 
-    bool play(int fileIndex);
+    bool play(int fileIndex, bool loop);
     virtual bool play(const char* filename);
 
     virtual void stop();
@@ -95,7 +95,7 @@ private:
 
     static I2SAudio* _instance;
     static void dmaCallback(Adafruit_ZeroDMA *dma);
-    static void timerCallback(int id);
+    static void outerFill(int id);
 
     static AudioBufferData audioBufferData[NUM_AUDIO_BUFFERS];     // Information about the state of audioBuffer0/1
     static int32_t audioBuffer0[STEREO_BUFFER_SAMPLES];
@@ -107,7 +107,9 @@ private:
     static uint32_t queued_size;
     static uint32_t queued_nSamples;
     static int      queued_format;
+    static bool     queued_loop;
     // end interupt section
+    static bool looping;   // outside of the queue
 
     Adafruit_ZeroI2S&   i2s;
     Adafruit_ZeroDMA&   audioDMA;  

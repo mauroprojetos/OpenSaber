@@ -9,11 +9,12 @@ AccelSpeed::AccelSpeed()
 
 void AccelSpeed::push(float ax, float ay, float az, uint32_t microDT)
 {
-
     static const float MICRO_TO_S = 1.f / 1000000.0f;
     static const float G = 9.81f;    // m/s2
 
     const float dts = MICRO_TO_S * float(microDT);
+    // Surprisingly low thresholf for the damping to kick in.
+    const float EDGE = MIX_LOWER + 0.25f * (MIX_CAP - MIX_LOWER);
 
     // V(m/s) = V(m/s) + a(m/s2) * seconds
     vx = vx + ax * G * dts;

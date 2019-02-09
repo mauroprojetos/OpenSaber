@@ -92,15 +92,15 @@ void loop()
 
     if (!i2sAudio.isPlaying() && !queue.empty()) {
         int id = queue.pop();
-        i2sAudio.play(id);
+        i2sAudio.play(id, false);
     }
 
     if (testMode) {
         if (!i2sAudio.isPlaying()) 
-            i2sAudio.play(5);
+            i2sAudio.play(5, false);
         if (testTime <= millis()) {
             testTime = millis() + randPlus.rand(3000);
-            i2sAudio.play(randPlus.rand(5));
+            i2sAudio.play(randPlus.rand(5), false);
         }
     }
 
@@ -109,7 +109,7 @@ void loop()
         if (c == '\n') {
             Log.pt(cmd).eol();
             if (cmd.size() == 2 && cmd[0] == 'p') {
-                i2sAudio.play(cmd[1] - '0');
+                i2sAudio.play(cmd[1] - '0', false);
             }
             else if (cmd[0] == 'p' && cmd.size() > 2) {
                 i2sAudio.play(cmd.c_str() + 2);
