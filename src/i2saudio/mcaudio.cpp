@@ -6,7 +6,6 @@
 // to compile & run on other platforms.
 #ifndef CORE_TEENSY
 
-
 #include <Adafruit_SPIFlash.h>
 #include <Adafruit_ZeroI2S.h>
 #include <Adafruit_ZeroDMA.h>
@@ -44,25 +43,20 @@ AudioBufferData I2SAudio::audioBufferData[NUM_AUDIO_BUFFERS];
 
 volatile uint8_t dmaPlaybackBuffer = 0;
 
-bool I2SAudio::isStreamQueued = false;
-uint32_t I2SAudio::queued_addr = 0;
-uint32_t I2SAudio::queued_size = 0;
-uint32_t I2SAudio::queued_nSamples = 0;
-int      I2SAudio::queued_format = 0;
-bool     I2SAudio::queued_loop = false;
-bool     I2SAudio::looping = false;
+I2SAudio::ChangeReq I2SAudio::changeReq;
+bool I2SAudio::looping;
 
 void I2SAudio::outerFill(int id)
 {
     I2SAudio::tracker.timerCalls++;
 
-    if (I2SAudio::isStreamQueued) {
-        I2SAudio::isStreamQueued = false;
+    if (changeReq.isQueued) {
+        changeReq.isQueued = false;
         I2SAudio::tracker.timerQueued++;
         SPIStream& spiStream = I2SAudio::instance()->spiStream;
-        spiStream.init(I2SAudio::queued_addr, I2SAudio::queued_size);
-        expander.init(&spiStream, I2SAudio::queued_nSamples, I2SAudio::queued_format);
-        looping = I2SAudio::queued_loop;
+        spiStream.init(changeReq.addr, changeReq.size);
+        expander.init(&spiStream, changeReq.nSamples, changeReq.format);
+        looping = changeReq.loop;
     }
 
     if (audioBufferData[id].status != AUDBUF_EMPTY)
@@ -78,6 +72,7 @@ void I2SAudio::outerFill(int id)
 
 void I2SAudio::dmaCallback(Adafruit_ZeroDMA* dma)
 {
+    const uint32_t start = micros();
     audioBufferData[dmaPlaybackBuffer].status = AUDBUF_EMPTY;
     dmaPlaybackBuffer = (dmaPlaybackBuffer + 1) % NUM_AUDIO_BUFFERS;
     
@@ -97,6 +92,8 @@ void I2SAudio::dmaCallback(Adafruit_ZeroDMA* dma)
 
     // Fill up the next buffer while this one is being played.
     outerFill((dmaPlaybackBuffer + 1) % NUM_AUDIO_BUFFERS);
+    const uint32_t end = micros();
+    I2SAudio::tracker.dmaMicros += (end - start);
 }
 
 I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIFlash& _spiFlash, SPIStream& _stream) : 
@@ -115,6 +112,7 @@ void I2SAudio::init()
 {
     Log.p("I2SAudio::init()").eol();
 
+    changeReq.reset();
     audioBufferData[0].buffer = audioBuffer0;
     audioBufferData[1].buffer = audioBuffer1;
     audioBufferData[0].reset();
@@ -205,12 +203,12 @@ bool I2SAudio::play(int fileIndex, bool loop)
     // above will acquire and release the lock on its own.
 
     noInterrupts();
-    I2SAudio::queued_addr = baseAddr;
-    I2SAudio::queued_size = header.lenInBytes;
-    I2SAudio::queued_nSamples = header.nSamples;
-    I2SAudio::queued_format = header.format;
-    I2SAudio::queued_loop = loop;
-    I2SAudio::isStreamQueued = true;
+    changeReq.addr = baseAddr;
+    changeReq.size = header.lenInBytes;
+    changeReq.nSamples = header.nSamples;
+    changeReq.format = header.format;
+    changeReq.loop = loop;
+    changeReq.isQueued = true;
     interrupts();
 
     return header.nSamples > 0;
@@ -231,12 +229,12 @@ void I2SAudio::stop()
 {
     //Log.p("stop").eol();
     noInterrupts();
-    I2SAudio::queued_addr = 0;
-    I2SAudio::queued_size = 0;
-    I2SAudio::queued_nSamples = 0;
-    I2SAudio::queued_format = 0;
-    I2SAudio::queued_loop = false;
-    I2SAudio::isStreamQueued = true;
+    changeReq.addr = 0;
+    changeReq.size = 0;
+    changeReq.nSamples = 0;
+    changeReq.format = 0;
+    changeReq.loop = false;
+    changeReq.isQueued = true;
     interrupts();
 }
 
@@ -244,7 +242,7 @@ void I2SAudio::stop()
 bool I2SAudio::isPlaying() const
 {
     noInterrupts();
-    bool isQueued = I2SAudio::isStreamQueued;
+    bool isQueued = changeReq.isQueued;
     bool hasSamples = expander.pos() < expander.samples();    
     interrupts();
 
@@ -254,6 +252,18 @@ bool I2SAudio::isPlaying() const
 
 void I2SAudio::process()
 {
+    #ifdef LOG_TIME
+    uint32_t t = millis();
+    if (t - lastLogTime >= 1000) {
+        lastLogTime = t;
+        uint32_t dmaTime  = tracker.dmaMicros;
+        uint32_t nCalls   = tracker.dmaCalls;
+        uint32_t wallTime = nCalls * MICRO_PER_AUDIO_BUFFER / 1000;
+        if (wallTime > 0) {
+            Log.p("CPU utiliziation for audio callback: ").p(dmaTime / wallTime).p(" / 1000").eol();
+        }
+    }
+    #endif
     if(tracker.hasErrors()) {
         dumpStatus();
         ASSERT(false);

@@ -8,7 +8,7 @@
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384
 #define STEREO_BUFFER_SAMPLES (AUDIO_BUFFER_SAMPLES*2)
-#define MSEC_PER_AUDIO_BUFFER (1000 * AUDIO_BUFFER_SAMPLES / AUDIO_FREQ)
+#define MICRO_PER_AUDIO_BUFFER (1000 * 1000 * AUDIO_BUFFER_SAMPLES / AUDIO_FREQ)
 #define AUDIO_SUB_BUFFER 256
 #define NUM_AUDIO_BUFFERS 2
 
@@ -49,6 +49,8 @@ struct I2STracker
 
     uint32_t dmaCalls;
     uint32_t dmaErrors;
+    uint32_t dmaMicros; // microseconds in the DMA & fills. Can compute utilization w/ dmaCalls.
+                        // Keep in mind the calls & micros aren't written atomically
 
     uint32_t fillEmpty;
     uint32_t fillSome;
@@ -91,6 +93,23 @@ public:
     static I2SAudio* instance() { return _instance; }
 
 private:
+    struct ChangeReq
+    {
+        bool     isQueued;
+        uint32_t addr;
+        uint32_t size;
+        uint32_t nSamples;
+        int      format;
+        bool     loop;
+
+        void reset() {
+            isQueued = false;
+            addr = size = nSamples = 0;
+            format = 0;
+            loop = false;
+        }
+    };
+
     int32_t expandVolume() const { return this->volume() * 256; }
 
     static I2SAudio* _instance;
@@ -102,12 +121,8 @@ private:
     static int32_t audioBuffer1[STEREO_BUFFER_SAMPLES];
 
     // Access from interupts disabled.
-    static bool isStreamQueued;
-    static uint32_t queued_addr;
-    static uint32_t queued_size;
-    static uint32_t queued_nSamples;
-    static int      queued_format;
-    static bool     queued_loop;
+    static ChangeReq changeReq;
+
     // end interupt section
     static bool looping;   // outside of the queue
 
@@ -115,6 +130,7 @@ private:
     Adafruit_ZeroDMA&   audioDMA;  
     Adafruit_SPIFlash&  spiFlash;
     SPIStream&          spiStream;
+    uint32_t            lastLogTime = 0;
 
     int volume256 = 256;
 };
