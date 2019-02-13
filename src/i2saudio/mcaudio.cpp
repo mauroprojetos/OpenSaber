@@ -1,5 +1,7 @@
 #include <Arduino.h>    
 
+#define LOG_TIME
+
 // This audio system is set up for using I2S on
 // an Itsy-Bitsy M0. Relies on DMA and SPI memory
 // streaming, so work needs to be done to get it
@@ -265,6 +267,8 @@ void I2SAudio::process()
         uint32_t wallTime = nCalls * MICRO_PER_AUDIO_BUFFER / 1000;
         if (wallTime > 0) {
             Log.p("CPU utiliziation for audio callback: ").p(dmaTime / wallTime).p(" / 1000").eol();
+            tracker.dmaMicros = 0;
+            tracker.dmaCalls = 0;
         }
     }
     #endif
