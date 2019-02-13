@@ -29,10 +29,12 @@
 int32_t I2SAudio::audioBuffer0[STEREO_BUFFER_SAMPLES];            // stereo buffers. throwing away memory. *sigh*
 int32_t I2SAudio::audioBuffer1[STEREO_BUFFER_SAMPLES];
 
+// Could be a static:
+wav12::Expander expander;
+
 // When uncompressed, SPI is read in as 16 bit mono,
 // and they are read to a buffer that is expanded to 32 bit stereo.
 uint8_t subBuffer[AUDIO_SUB_BUFFER];
-wav12::Expander expander(subBuffer, AUDIO_SUB_BUFFER);
 DmacDescriptor* dmacDescriptor = 0;
 
 I2STracker I2SAudio::tracker;
@@ -111,6 +113,8 @@ I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIF
 void I2SAudio::init()
 {
     Log.p("I2SAudio::init()").eol();
+
+    expander.begin(subBuffer, AUDIO_SUB_BUFFER);
 
     changeReq.reset();
     audioBufferData[0].buffer = audioBuffer0;
@@ -215,11 +219,11 @@ bool I2SAudio::play(int fileIndex, bool loop)
 }
 
 
-bool I2SAudio::play(const char* filename)
+bool I2SAudio::play(const char* filename, bool loop)
 {
     int index = MemImage.lookup(filename);
     if (index >= 0) {
-        play(index, false);
+        play(index, loop);
     }
     return true;
 }

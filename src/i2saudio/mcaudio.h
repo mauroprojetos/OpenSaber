@@ -75,7 +75,8 @@ public:
     bool isInitialized() const { return _instance != 0; }
 
     bool play(int fileIndex, bool loop);
-    virtual bool play(const char* filename);
+    virtual bool play(const char* filename, bool loop);
+    virtual bool canLoop() const { return true; }
 
     virtual void stop();
     virtual bool isPlaying() const;

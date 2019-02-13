@@ -5,7 +5,8 @@ class IAudio
 {
 public:
     virtual void init() = 0;
-    virtual bool play(const char* filename) = 0;
+    virtual bool play(const char* filename, bool loop) = 0;
+    virtual bool canLoop() const = 0;
     virtual void stop() = 0;
     virtual bool isPlaying() const = 0;
 

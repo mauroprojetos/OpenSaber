@@ -111,8 +111,14 @@ void loop()
             if (cmd.size() == 2 && cmd[0] == 'p') {
                 i2sAudio.play(cmd[1] - '0', false);
             }
+            else if (cmd.size() == 2 && cmd[0] == 'l') {
+                i2sAudio.play(cmd[1] - '0', true);
+            }
             else if (cmd[0] == 'p' && cmd.size() > 2) {
-                i2sAudio.play(cmd.c_str() + 2);
+                i2sAudio.play(cmd.c_str() + 2, false);
+            }
+            else if (cmd[0] == 'l' && cmd.size() > 2) {
+                i2sAudio.play(cmd.c_str() + 2, true);
             }
             else if (cmd[0] == 'q') {
                 for(int i=1; i<cmd.size(); ++i)
