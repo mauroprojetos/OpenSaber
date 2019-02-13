@@ -349,6 +349,13 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
 }
 
 
+// Call from interrupt
+void SPIStream::rewind()
+{
+    m_pos = 0;
+}
+
+// Call from interrupt
 uint32_t SPIStream::fetch(uint8_t* target, uint32_t nBytes)
 {
     // Normally, the SPI would need to be locked.

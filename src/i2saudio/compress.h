@@ -66,7 +66,7 @@ namespace wav12 {
         
         uint32_t samples() const { return m_nSamples; }
         uint32_t pos() const     { return m_pos; }
-        void rewind()            { m_pos = 0; }
+        void rewind();
 
     private:
         int32_t* expandComp0(int32_t* target, const int16_t* src, uint32_t n, int32_t volume, bool add);

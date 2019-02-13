@@ -149,6 +149,7 @@ public:
     }
 
     virtual uint32_t fetch(uint8_t* target, uint32_t nBytes);
+    virtual void rewind();
 
 private:
     Adafruit_SPIFlash& m_flash;

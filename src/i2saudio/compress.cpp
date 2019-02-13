@@ -236,6 +236,14 @@ int32_t* Expander::expandComp2(int32_t* t, const uint8_t* src, const int32_t* en
 }
 
 
+void Expander::rewind()
+{
+    m_pos = 0;
+    if (m_stream) m_stream->rewind();
+}
+
+
+
 void Expander::expand(int32_t* target, uint32_t nSamples, int32_t volume, bool add)
 {
     m_pos += nSamples;
