@@ -8,6 +8,18 @@
 #include <string.h>
 
 namespace wav12 {
+
+    template<class T>
+    T wav12Min(T a, T b) { return (a < b) ? a : b; }
+    template<class T>
+    T wav12Max(T a, T b) { return (a > b) ? a : b; }
+    template<class T>
+    T wav12Clamp(T x, T a, T b) {
+        if (x < a) return a;
+        if (x > b) return b;
+        return x;
+    }
+
     struct Wav12Header
     {
         char id[4];             // 'wv12'
@@ -60,7 +72,7 @@ namespace wav12 {
         // Volume max is 65536.
         // If 'add' is true, will add to the target buffer (for mixing), else
         // will just write & replace.
-        void expand(int32_t* target, uint32_t nTarget, int32_t volume, bool add);
+        void expand2(int32_t* target, uint32_t nTarget, int32_t volume, bool add);
 
         bool done() const { return m_nSamples == m_pos; }
         

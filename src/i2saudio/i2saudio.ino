@@ -97,7 +97,7 @@ void loop()
 
     if (testMode) {
         if (!i2sAudio.isPlaying()) 
-            i2sAudio.play(5, false);
+            i2sAudio.play(5, true);
         if (testTime <= millis()) {
             testTime = millis() + randPlus.rand(3000);
             i2sAudio.play(randPlus.rand(5), false);

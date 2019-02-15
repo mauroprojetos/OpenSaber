@@ -326,7 +326,7 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
                 expander.rewind();
             }
             uint32_t toRead = glMin(expander.samples() - expander.pos(), AUDIO_BUFFER_SAMPLES - totalRead);
-            expander.expand(buffer + totalRead*2, toRead, volume, false);
+            expander.expand2(buffer + totalRead*2, toRead, volume, false);
             totalRead += toRead;
         }
         I2SAudio::tracker.fillSome++;
@@ -334,7 +334,7 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
     else {
         uint32_t toRead = glMin(expander.samples() - expander.pos(), (uint32_t)AUDIO_BUFFER_SAMPLES);
         if (toRead) {
-            expander.expand(buffer, toRead, volume, false);
+            expander.expand2(buffer, toRead, volume, false);
             I2SAudio::tracker.fillSome++;
         }
         else {
