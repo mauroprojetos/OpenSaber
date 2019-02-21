@@ -5,6 +5,9 @@
 #include "compress.h"
 #include "iaudio.h"
 
+#define MULTI_CHANNEL
+#define NUM_CHANNELS 4
+
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384
 #define STEREO_BUFFER_SAMPLES (AUDIO_BUFFER_SAMPLES*2)
@@ -111,7 +114,7 @@ private:
         }
     };
 
-    int32_t expandVolume() const { return this->volume() * 256; }
+    int32_t expandVolume(int channel) const { return this->volume() * 256; }
 
     static I2SAudio* _instance;
     static void dmaCallback(Adafruit_ZeroDMA *dma);
@@ -122,18 +125,18 @@ private:
     static int32_t audioBuffer1[STEREO_BUFFER_SAMPLES];
 
     // Access from interupts disabled.
-    static ChangeReq changeReq;
-
+    static ChangeReq changeReq[NUM_CHANNELS];
     // end interupt section
-    static bool looping;   // outside of the queue
 
     Adafruit_ZeroI2S&   i2s;
     Adafruit_ZeroDMA&   audioDMA;  
     Adafruit_SPIFlash&  spiFlash;
-    SPIStream&          spiStream;
+    SPIStream&          spiStream[NUM_CHANNELS];
     uint32_t            lastLogTime = 0;
 
-    int volume256 = 256;
+    // these are access in interupts. Assuming atomic read on M0 (?) seems okay.
+    int volume256[NUM_CHANNELS];    
+    int looping[NUM_CHANNELS];      // 0 or 1
 };
 
 

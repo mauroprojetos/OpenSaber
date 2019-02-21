@@ -32,7 +32,7 @@ int32_t I2SAudio::audioBuffer0[STEREO_BUFFER_SAMPLES];            // stereo buff
 int32_t I2SAudio::audioBuffer1[STEREO_BUFFER_SAMPLES];
 
 // Could be a static:
-wav12::Expander expander;
+wav12::Expander expander[NUM_CHANNELS];
 
 // When uncompressed, SPI is read in as 16 bit mono,
 // and they are read to a buffer that is expanded to 32 bit stereo.
@@ -47,20 +47,22 @@ AudioBufferData I2SAudio::audioBufferData[NUM_AUDIO_BUFFERS];
 
 volatile uint8_t dmaPlaybackBuffer = 0;
 
-I2SAudio::ChangeReq I2SAudio::changeReq;
-bool I2SAudio::looping;
+I2SAudio::ChangeReq I2SAudio::changeReq[NUM_CHANNELS];
+bool I2SAudio::looping[NUM_CHANNELS];
 
 void I2SAudio::outerFill(int id)
 {
     I2SAudio::tracker.timerCalls++;
 
-    if (changeReq.isQueued) {
-        changeReq.isQueued = false;
-        I2SAudio::tracker.timerQueued++;
-        SPIStream& spiStream = I2SAudio::instance()->spiStream;
-        spiStream.init(changeReq.addr, changeReq.size);
-        expander.init(&spiStream, changeReq.nSamples, changeReq.format);
-        looping = changeReq.loop;
+    for(int i=0; i<NUM_CHANNELS; ++i) {
+        if (changeReq.isQueued) {
+            changeReq.isQueued = false;
+            I2SAudio::tracker.timerQueued++;
+            SPIStream& spiStream = I2SAudio::instance()->spiStream[i];
+            spiStream.init(changeReq.addr, changeReq.size);
+            expander[i].init(&spiStream, changeReq.nSamples, changeReq.format);
+            looping[i] = changeReq.loop;
+        }
     }
 
     if (audioBufferData[id].status != AUDBUF_EMPTY)
@@ -68,9 +70,12 @@ void I2SAudio::outerFill(int id)
 
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
-    int rc = audioBufferData[id].fillBuffer(expander, I2SAudio::instance()->expandVolume(), looping);
-    if (rc != 0) {
-        I2SAudio::tracker.timerErrors++;
+    const I2SAudio* audio = I2SAudio::instance();
+    for(int i=0; i<NUM_CHANNELS; ++i) {
+        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), audio->isLooping(i), (i > 0));
+        if (rc != 0) {
+            I2SAudio::tracker.timerErrors++;
+        }
     }
 }
 
@@ -109,6 +114,11 @@ I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIF
     // As usual, do nothing in the constructor.
     // The services aren't started yet.
     _instance = this;
+
+    for(int i=0; i<NUM_CHANNELS; i++) {
+        volume256[i] = 256;
+        looping[i] = 0;
+    }
 }
 
 
@@ -116,7 +126,8 @@ void I2SAudio::init()
 {
     Log.p("I2SAudio::init()").eol();
 
-    expander.begin(subBuffer, AUDIO_SUB_BUFFER);
+    for(int i=0; i<NUM_CHANNELS; i++)
+        expander[i].begin(subBuffer, AUDIO_SUB_BUFFER);
 
     changeReq.reset();
     audioBufferData[0].buffer = audioBuffer0;
@@ -300,7 +311,7 @@ void I2SAudio::dumpStatus()
 }
 
 
-int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool loop)
+int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add)
 {
     if (status != AUDBUF_EMPTY) {
         I2SAudio::tracker.fillErrors++;
