@@ -48,20 +48,21 @@ AudioBufferData I2SAudio::audioBufferData[NUM_AUDIO_BUFFERS];
 volatile uint8_t dmaPlaybackBuffer = 0;
 
 I2SAudio::ChangeReq I2SAudio::changeReq[NUM_CHANNELS];
-bool I2SAudio::looping[NUM_CHANNELS];
 
 void I2SAudio::outerFill(int id)
 {
     I2SAudio::tracker.timerCalls++;
+    I2SAudio* audio = I2SAudio::instance();
 
     for(int i=0; i<NUM_CHANNELS; ++i) {
-        if (changeReq.isQueued) {
-            changeReq.isQueued = false;
+        if (changeReq[i].isQueued) {
+            ChangeReq& cr = changeReq[i];
+            cr.isQueued = false;
             I2SAudio::tracker.timerQueued++;
-            SPIStream& spiStream = I2SAudio::instance()->spiStream[i];
-            spiStream.init(changeReq.addr, changeReq.size);
-            expander[i].init(&spiStream, changeReq.nSamples, changeReq.format);
-            looping[i] = changeReq.loop;
+            wav12::IStream* iStream = I2SAudio::instance()->iStream[i];
+            iStream->set(cr.addr, cr.size);
+            expander[i].init(iStream, cr.nSamples, cr.format);
+            audio->looping[i] = cr.loop;
         }
     }
 
@@ -70,9 +71,8 @@ void I2SAudio::outerFill(int id)
 
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
-    const I2SAudio* audio = I2SAudio::instance();
     for(int i=0; i<NUM_CHANNELS; ++i) {
-        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), audio->isLooping(i), (i > 0));
+        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), audio->looping[i] > 0, (i > 0));
         if (rc != 0) {
             I2SAudio::tracker.timerErrors++;
         }
@@ -105,19 +105,20 @@ void I2SAudio::dmaCallback(Adafruit_ZeroDMA* dma)
     I2SAudio::tracker.dmaMicros += (end - start);
 }
 
-I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIFlash& _spiFlash, SPIStream& _stream) : 
+I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIFlash& _spiFlash) : 
     i2s(_i2s),
     audioDMA(_dma),
-    spiFlash(_spiFlash),
-    spiStream(_stream)
+    spiFlash(_spiFlash)
 {
     // As usual, do nothing in the constructor.
     // The services aren't started yet.
     _instance = this;
 
     for(int i=0; i<NUM_CHANNELS; i++) {
+        iStream[i] = 0;
         volume256[i] = 256;
         looping[i] = 0;
+        changeReq[i].isQueued = false;
     }
 }
 
@@ -125,11 +126,18 @@ I2SAudio::I2SAudio(Adafruit_ZeroI2S& _i2s, Adafruit_ZeroDMA& _dma, Adafruit_SPIF
 void I2SAudio::init()
 {
     Log.p("I2SAudio::init()").eol();
+    for(int i=0; i<NUM_CHANNELS; i++) {
+        if (iStream[i] == 0) {
+            Log.p("I2SAudio::init() IStream index=").p(i).p(" is null.").eol();
+            ASSERT(false);
+        }
+    }
 
-    for(int i=0; i<NUM_CHANNELS; i++)
+    for(int i=0; i<NUM_CHANNELS; i++) {
         expander[i].begin(subBuffer, AUDIO_SUB_BUFFER);
+        changeReq[i].reset();
+    }
 
-    changeReq.reset();
     audioBufferData[0].buffer = audioBuffer0;
     audioBufferData[1].buffer = audioBuffer1;
     audioBufferData[0].reset();
@@ -188,17 +196,17 @@ void I2SAudio::testReadRate(int index)
     readAudioInfo(spiFlash, file, &header, &baseAddr);
 
     Log.p("Test: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
-    spiStream.init(baseAddr, header.lenInBytes);
-    expander.init(&spiStream, header.nSamples, header.format);
+    iStream[0]->set(baseAddr, header.lenInBytes);
+    expander[0].init(iStream[0], header.nSamples, header.format);
     int volume = 1000;
 
     uint32_t start = millis();
-    while(expander.pos() < expander.samples()) {
+    while(expander[0].pos() < expander[0].samples()) {
         audioBufferData[0].reset();
-        audioBufferData[0].fillBuffer(expander, volume, false);
+        audioBufferData[0].fillBuffer(expander[0], volume, false, false);
     }
     uint32_t end = millis();
-    Log.p("Index ").p(index).p( " samples/second=").p((expander.samples()*uint32_t(1000))/(end - start)).eol();
+    Log.p("Index ").p(index).p( " samples/second=").p((expander[0].samples()*uint32_t(1000))/(end - start)).eol();
 
     audioBufferData[0].reset();
 }
@@ -220,12 +228,13 @@ bool I2SAudio::play(int fileIndex, bool loop)
     // above will acquire and release the lock on its own.
 
     noInterrupts();
-    changeReq.addr = baseAddr;
-    changeReq.size = header.lenInBytes;
-    changeReq.nSamples = header.nSamples;
-    changeReq.format = header.format;
-    changeReq.loop = loop;
-    changeReq.isQueued = true;
+    ChangeReq& cr = changeReq[currentChannel];
+    cr.addr = baseAddr;
+    cr.size = header.lenInBytes;
+    cr.nSamples = header.nSamples;
+    cr.format = header.format;
+    cr.loop = loop;
+    cr.isQueued = true;
     interrupts();
 
     return header.nSamples > 0;
@@ -246,12 +255,13 @@ void I2SAudio::stop()
 {
     //Log.p("stop").eol();
     noInterrupts();
-    changeReq.addr = 0;
-    changeReq.size = 0;
-    changeReq.nSamples = 0;
-    changeReq.format = 0;
-    changeReq.loop = false;
-    changeReq.isQueued = true;
+    ChangeReq& cr = changeReq[currentChannel];
+    cr.addr = 0;
+    cr.size = 0;
+    cr.nSamples = 0;
+    cr.format = 0;
+    cr.loop = false;
+    cr.isQueued = true;
     interrupts();
 }
 
@@ -259,8 +269,8 @@ void I2SAudio::stop()
 bool I2SAudio::isPlaying() const
 {
     noInterrupts();
-    bool isQueued = changeReq.isQueued;
-    bool hasSamples = expander.pos() < expander.samples();    
+    bool isQueued = changeReq[currentChannel].isQueued;
+    bool hasSamples = expander[currentChannel].pos() < expander[currentChannel].samples();    
     interrupts();
 
     return isQueued || hasSamples;

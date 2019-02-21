@@ -17,11 +17,17 @@ extern "C" char *sbrk(int i);
 Adafruit_ZeroI2S i2s(0, 1, 12, 2);
 Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
 Adafruit_ZeroDMA audioDMA;
+
 SPIStream spiStream(spiFlash);
-Adafruit_ZeroTimer zt4(4);
+#ifdef MULTI_CHANNEL
+static_assert(NUM_CHANNELS == 4, "Hardwired for 4 channels");
+SPIStream spiStream1(spiFlash);
+SPIStream spiStream2(spiFlash);
+SPIStream spiStream3(spiFlash);
+#endif
 
 ConstMemImage MemImage(spiFlash);
-I2SAudio i2sAudio(i2s, audioDMA, spiFlash, spiStream);
+I2SAudio i2sAudio(i2s, audioDMA, spiFlash);
 
 Timer2 statusTimer(1000);
 Timer2 playingTimer(833);
@@ -63,7 +69,15 @@ void setup()
     vpromGet(0, vVal);
     Log.p("VPROM test: ").p(vVal == 113 ? "success" : "ERROR").eol();
 
+    i2sAudio.initStream(&spiStream);
+    #ifdef MULTI_CHANNEL
+    static_assert(NUM_CHANNELS == 4, "Hardwired for 4 channels");
+    i2sAudio.initStream(&spiStream1, 1);
+    i2sAudio.initStream(&spiStream2, 2);
+    i2sAudio.initStream(&spiStream3, 3);
+    #endif
     i2sAudio.init();
+
     i2sAudio.setVolume(50);
 
     Log.p("Free ram:").p(FreeRam()).eol();

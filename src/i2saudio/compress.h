@@ -41,7 +41,7 @@ namespace wav12 {
             m_pos = 0;
         }
 
-        void init(const uint8_t* data, uint32_t size) {
+        virtual void set(const uint8_t* data, uint32_t size) {
             m_data = data;
             m_size = size;
             m_pos = 0;

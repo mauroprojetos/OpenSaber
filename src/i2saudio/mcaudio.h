@@ -39,7 +39,7 @@ struct AudioBufferData {
     uint32_t dataAvailable = 0;
     int32_t* buffer = 0;
     
-    int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop);
+    int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add);
 
     void reset() { status = AUDBUF_EMPTY; dataAvailable = 0; }
 };
@@ -72,10 +72,15 @@ struct I2STracker
 class I2SAudio : public IAudio
 {
 public:
-    I2SAudio(Adafruit_ZeroI2S& i2s, Adafruit_ZeroDMA& dma, Adafruit_SPIFlash& spiFlash, SPIStream& stream);
+    I2SAudio(Adafruit_ZeroI2S& i2s, Adafruit_ZeroDMA& dma, Adafruit_SPIFlash& spiFlash);
 
     virtual void init();
+    void initStream(wav12::IStream* stream, int channel=0) { iStream[channel] = stream;}
+
     bool isInitialized() const { return _instance != 0; }
+
+    void setChannel(int c) { currentChannel = c; }
+    int getChannel() const { return currentChannel; }
 
     bool play(int fileIndex, bool loop);
     virtual bool play(const char* filename, bool loop);
@@ -88,8 +93,8 @@ public:
     void dumpStatus();
 
     // Volume 256 is "full" - can boost or cut from there.
-    virtual void setVolume(int v) { volume256 = v; }
-    virtual int volume() const { return volume256; }
+    virtual void setVolume(int v) { volume256[currentChannel] = v; }
+    virtual int volume() const { return volume256[currentChannel]; }
 
     void testReadRate(int index);
 
@@ -128,10 +133,11 @@ private:
     static ChangeReq changeReq[NUM_CHANNELS];
     // end interupt section
 
+    int                 currentChannel = 0;
     Adafruit_ZeroI2S&   i2s;
     Adafruit_ZeroDMA&   audioDMA;  
     Adafruit_SPIFlash&  spiFlash;
-    SPIStream&          spiStream[NUM_CHANNELS];
+    wav12::IStream*     iStream[NUM_CHANNELS];
     uint32_t            lastLogTime = 0;
 
     // these are access in interupts. Assuming atomic read on M0 (?) seems okay.
@@ -143,9 +149,9 @@ private:
 class SPIStream : public wav12::IStream
 {
 public:
-    SPIStream(Adafruit_SPIFlash& flash) : m_flash(flash) { init(0, 0); }
+    SPIStream(Adafruit_SPIFlash& flash) : m_flash(flash) { set(0, 0); }
 
-    void init(uint32_t addr, uint32_t size) {
+    virtual void set(uint32_t addr, uint32_t size) {
         m_addr = addr;
         m_size = size;
         m_pos = 0;
