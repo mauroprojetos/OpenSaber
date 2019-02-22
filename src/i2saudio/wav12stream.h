@@ -6,6 +6,7 @@
 namespace wav12 {
 
     // Represents an entire stream, which may contain multiple compressed sounds.
+    // On the AVR, these methods are *only* called from the interrupt.
     class IStream {
     public:
         // Set the head to a particular sound.
@@ -13,7 +14,6 @@ namespace wav12 {
         // Fetch bytes within a sound.
         virtual uint32_t fetch(uint8_t* target, uint32_t nBytes) = 0;
         // Rewind back to the beginning of the sound.
-        // FIXME: somewhat redundant to set()
         virtual void rewind() = 0;
     };
 

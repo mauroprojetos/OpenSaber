@@ -369,6 +369,12 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
     return AUDERROR_NONE;
 }
 
+void SPIStream::set(uint32_t addr, uint32_t size)
+{
+    m_addr = addr;
+    m_size = size;
+    m_pos = 0;
+}
 
 // Call from interrupt
 void SPIStream::rewind()
