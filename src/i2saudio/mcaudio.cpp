@@ -212,7 +212,7 @@ void I2SAudio::testReadRate(int index)
 }
 
 
-bool I2SAudio::play(int fileIndex, bool loop)
+bool I2SAudio::play(int fileIndex, bool loop, int channel)
 {
     MemUnit file;
 
@@ -228,7 +228,7 @@ bool I2SAudio::play(int fileIndex, bool loop)
     // above will acquire and release the lock on its own.
 
     noInterrupts();
-    ChangeReq& cr = changeReq[currentChannel];
+    ChangeReq& cr = changeReq[channel];
     cr.addr = baseAddr;
     cr.size = header.lenInBytes;
     cr.nSamples = header.nSamples;
@@ -241,21 +241,21 @@ bool I2SAudio::play(int fileIndex, bool loop)
 }
 
 
-bool I2SAudio::play(const char* filename, bool loop)
+bool I2SAudio::play(const char* filename, bool loop, int channel)
 {
     int index = MemImage.lookup(filename);
     if (index >= 0) {
-        play(index, loop);
+        play(index, loop, channel);
     }
     return true;
 }
 
 
-void I2SAudio::stop()
+void I2SAudio::stop(int channel)
 {
     //Log.p("stop").eol();
     noInterrupts();
-    ChangeReq& cr = changeReq[currentChannel];
+    ChangeReq& cr = changeReq[channel];
     cr.addr = 0;
     cr.size = 0;
     cr.nSamples = 0;
@@ -266,11 +266,11 @@ void I2SAudio::stop()
 }
 
 
-bool I2SAudio::isPlaying() const
+bool I2SAudio::isPlaying(int channel) const
 {
     noInterrupts();
-    bool isQueued = changeReq[currentChannel].isQueued;
-    bool hasSamples = expander[currentChannel].pos() < expander[currentChannel].samples();    
+    bool isQueued = changeReq[channel].isQueued;
+    bool hasSamples = expander[channel].pos() < expander[channel].samples();    
     interrupts();
 
     return isQueued || hasSamples;

@@ -78,7 +78,7 @@ void setup()
     #endif
     i2sAudio.init();
 
-    i2sAudio.setVolume(50);
+    i2sAudio.setVolume(50, 0);
 
     Log.p("Free ram:").p(FreeRam()).eol();
 
@@ -87,6 +87,14 @@ void setup()
 
 CStr<32> cmd;
 CQueue<16> queue;
+
+int cToInt(char c, int low, int high)
+{
+    int v = c - '0';
+    if (v > high) v = high;
+    if (v < low) v = low;
+    return v;
+}
 
 void loop()
 {
@@ -104,17 +112,17 @@ void loop()
     #endif
     lastTime = t;
 
-    if (!i2sAudio.isPlaying() && !queue.empty()) {
+    if (!i2sAudio.isPlaying(0) && !queue.empty()) {
         int id = queue.pop();
-        i2sAudio.play(id, false);
+        i2sAudio.play(id, false, 0);
     }
 
     if (testMode) {
-        if (!i2sAudio.isPlaying()) 
-            i2sAudio.play(5, true);
+        if (!i2sAudio.isPlaying(0)) 
+            i2sAudio.play(5, true, 0);
         if (testTime <= millis()) {
             testTime = millis() + randPlus.rand(3000);
-            i2sAudio.play(randPlus.rand(5), false);
+            i2sAudio.play(randPlus.rand(5), false, 0);
         }
     }
 
@@ -123,23 +131,29 @@ void loop()
         if (c == '\n') {
             Log.pt(cmd).eol();
             if (cmd.size() == 2 && cmd[0] == 'p') {
-                i2sAudio.play(cmd[1] - '0', false);
+                i2sAudio.play(cToInt(cmd[1], 0, 9), false, 0);
             }
             else if (cmd.size() == 2 && cmd[0] == 'l') {
-                i2sAudio.play(cmd[1] - '0', true);
+                i2sAudio.play(cToInt(cmd[1], 0, 9), true, 0);
+            }
+            else if (cmd.size() == 3 && cmd[0] == 'p') {
+                i2sAudio.play(cToInt(cmd[1], 0, 9), false, cToInt(cmd[2], 0, 3));
+            }
+            else if (cmd.size() == 3 && cmd[0] == 'l') {
+                i2sAudio.play(cToInt(cmd[1], 0, 9), true, cToInt(cmd[2], 0, 3));
             }
             else if (cmd[0] == 'p' && cmd.size() > 2) {
-                i2sAudio.play(cmd.c_str() + 2, false);
+                i2sAudio.play(cmd.c_str() + 2, false, 0);
             }
             else if (cmd[0] == 'l' && cmd.size() > 2) {
-                i2sAudio.play(cmd.c_str() + 2, true);
+                i2sAudio.play(cmd.c_str() + 2, true, 0);
             }
             else if (cmd[0] == 'q') {
                 for(int i=1; i<cmd.size(); ++i)
                     queue.push(cmd[i] - '0');
             }
             else if (cmd == "s") {
-                i2sAudio.stop();
+                i2sAudio.stop(0);
             }
             else if (cmd == "t") {
                 testMode = !testMode;
@@ -147,7 +161,7 @@ void loop()
             }
             else if (cmd[0] == 'v') {
                 int v = atoi(cmd.c_str() + 1);
-                i2sAudio.setVolume(v);
+                i2sAudio.setVolume(v, 0);
             }
             cmd.clear();
         }

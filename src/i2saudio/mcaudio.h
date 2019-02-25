@@ -79,22 +79,19 @@ public:
 
     bool isInitialized() const { return _instance != 0; }
 
-    void setChannel(int c) { currentChannel = c; }
-    int getChannel() const { return currentChannel; }
-
-    bool play(int fileIndex, bool loop);
-    virtual bool play(const char* filename, bool loop);
+    bool play(int fileIndex, bool loop, int channel);
+    virtual bool play(const char* filename, bool loop, int channel);
     virtual bool canLoop() const { return true; }
 
-    virtual void stop();
-    virtual bool isPlaying() const;
+    virtual void stop(int channel);
+    virtual bool isPlaying(int channel) const;
 
     virtual void process();     // checks for errors
     void dumpStatus();
 
     // Volume 256 is "full" - can boost or cut from there.
-    virtual void setVolume(int v) { volume256[currentChannel] = v; }
-    virtual int volume() const { return volume256[currentChannel]; }
+    virtual void setVolume(int v, int channel) { volume256[channel] = v; }
+    virtual int volume(int channel) const { return volume256[channel]; }
 
     void testReadRate(int index);
 
@@ -119,7 +116,7 @@ private:
         }
     };
 
-    int32_t expandVolume(int channel) const { return this->volume() * 256; }
+    int32_t expandVolume(int channel) const { return this->volume(channel) * 256; }
 
     static I2SAudio* _instance;
     static void dmaCallback(Adafruit_ZeroDMA *dma);
@@ -133,7 +130,6 @@ private:
     static ChangeReq changeReq[NUM_CHANNELS];
     // end interupt section
 
-    int                 currentChannel = 0;
     Adafruit_ZeroI2S&   i2s;
     Adafruit_ZeroDMA&   audioDMA;  
     Adafruit_SPIFlash&  spiFlash;
