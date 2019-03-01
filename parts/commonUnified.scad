@@ -47,14 +47,6 @@ module capsule(theta0, theta1, r=2, _mirror=false)
     }
 }
 
-module zCapsule(dz, r)
-{
-    hull() {
-        rotate([-90, 0, 0]) cylinder(h=20, r=r);
-        translate([0, 0, dz]) rotate([-90, 0, 0]) cylinder(h=20, r=r);
-    }
-}
-
 module columnY(dx, dyFrom0, dz, diameter, baseDX=0, baseDZ=0)
 {
     intersection() {
@@ -142,6 +134,34 @@ module columnJoint(dz, dOuter, trim)
     }
 }
 
+/* 
+    A simple bridge at 45 degrees for
+    unsupported printing. Made to hold
+    switches, boards, etc. 
+*/
+module simpleBridge(diameter, dyToTop, yThickness, dz, addWidth=0)
+{
+    L = 50;
+    delta = yThickness * 1.2;
+
+    PATH = [
+        [-L, dyToTop - yThickness - L],
+        [0, dyToTop - yThickness],
+        [L, dyToTop - yThickness - L],
+        [L, dyToTop - L],
+        [delta + addWidth, dyToTop],
+        [-delta - addWidth, dyToTop],
+        [-L, dyToTop - L]
+    ];
+
+    translate([0, 0, -dz/2]) {
+        intersection() {
+            cylinder(h=dz, d=diameter);
+            polygonXY(dz, PATH);
+        }
+    }
+}
+
 module bridge(dx, dy, dz, inset=0)
 {
     h1 = dx * 0.57;
@@ -215,13 +235,14 @@ module dotstarLED(n, dy, pitch=DOTSTAR_PITCH)
     }
 }
 
+function dotstarStripZLen(n, pitch=DOTSTAR_PITCH) = DOTSTAR_STRIP_XZ + pitch * (n-1);
 
 module dotstarStrip(n, y0=0, y1=1, pitch=DOTSTAR_PITCH)
 {
     translate([-DOTSTAR_STRIP_XZ/2, y0, -DOTSTAR_STRIP_XZ/2]) {
         cube(size=[ DOTSTAR_STRIP_XZ, 
                     y1 - y0,
-                    DOTSTAR_STRIP_XZ + pitch * (n-1)]);
+                    dotstarStripZLen(n, pitch)]);
     }
 }
 
@@ -530,23 +551,23 @@ module powerPortRing(outer, t, dz, dzToPort, portSupportToBack=false)
 }
 
 
-module switchRing(outer, t, dz, dzToSwitch)
+module switchRing(diameter, t, dz, dzToSwitch)
 {
     difference() {
         union() {
-            tube(h=dz, do=outer, di=outer-t);
+            tube(h=dz, do=diameter, di=diameter-t);
             intersection() {
-                cylinder(h=dz, d=outer);
-                translate([-50, outer/2 - 6, dzToSwitch - D_SWITCH_SUPPORT/2])
+                cylinder(h=dz, d=diameter);
+                translate([-50, diameter/2 - 6, dzToSwitch - D_SWITCH_SUPPORT/2])
                     cube(size=[100, 50, D_SWITCH_SUPPORT]);
             }
         }
         translate([0, 0, dzToSwitch]) {
-            switch(outer, true);
+            switch(diameter, true);
         }
     }
     *translate([0, 0, dzToSwitch]) {
-        switch(outer, false);
+        switch(diameter, false);
     }
 }
 
@@ -685,6 +706,91 @@ module oledHolder(outer, t, dz, dzToPCB, dyPCB)
               ]);
 }
 
+/*
+    Render the emitter holder for a advanced LED heatsink.
+    Should render at the same place as the base:
+    translate([0, 0, z]) {
+        emitterBase(d, dz);
+        emitterHolder(d, dz);
+    }
+*/
+
+INCHES_TO_MM        = 25.4;
+H_TEETH             = 4.0;
+H_ADVANCED_THREAD   = 12.0;                     // FIXME
+H_RING              = 3.0;
+H_HEATSINK          = 0.45 + 0.890 * INCHES_TO_MM;
+D_ADVANCED_LED      = 20.000;                   // hole where the light shines.
+D_HEATSINK          = 1.000 * INCHES_TO_MM;
+
+
+module emitterTeeth()
+{
+    N_ADVANCED_TEETH = 6;
+
+    TEETH_Y = 7;
+
+    for(r=[0:5]) {
+        rotate([0, 0, r*60])
+            translate([0, -TEETH_Y/2, 0])
+                cube(size=[50, TEETH_Y, H_TEETH]);
+    }
+}
+
+function emitterZ() = H_ADVANCED_THREAD + H_HEATSINK + H_RING;
+
+module emitterHolder(d)
+{
+    translate([0, 0, H_ADVANCED_THREAD]) difference() {
+        union() {
+            // Top cap
+            translate([0, 0, H_HEATSINK]) {
+                difference() {
+                    cylinder(h=H_RING, d=d);
+                    cylinder(h=H_RING, d=D_ADVANCED_LED);
+                }
+            };
+        
+            // LED
+            cylinder(h=H_HEATSINK, d=d);
+        }
+        cylinder(h=H_HEATSINK, d=D_HEATSINK);
+
+        // Vents / decoration / volume reduction
+        Z0 = 4;
+        Z1 = 12;
+        Z2 = 21;
+
+        for(r=[0:5]) {
+            rotate([0, 0, r*60])
+                polygonXZ(h=50, points=
+                [
+                    [-5, Z2],
+                    [5, Z2],
+                    [5, Z1],
+                    [0, Z0],
+                    [-5, Z1]
+                ]);
+        }
+    }
+    translate([0, 0, H_ADVANCED_THREAD - H_TEETH]) {
+        intersection() {
+            tube(h=H_TEETH, do=d, di=D_HEATSINK);
+            emitterTeeth();
+        }
+    }
+}
+
+module emitterBase(d)
+{
+    //color("olive") 
+    {
+        difference() {
+            tube(h=H_ADVANCED_THREAD, do=d, di=dynamicHeatSinkThread());
+            translate([0, 0, H_ADVANCED_THREAD - H_TEETH]) emitterTeeth();
+        }
+    }
+}
 
 /*
     Render the front (1", typically) mount for the advanced LED,
