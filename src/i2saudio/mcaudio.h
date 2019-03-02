@@ -21,27 +21,18 @@ class Adafruit_ZeroDMA;
 class SPIStream;
 
 enum {
-    AUDBUF_EMPTY,
-    AUDBUF_FILLING,
-    AUDBUF_DRAINING,
-    AUDBUF_READY
-};
-
-enum {
     AUDERROR_NONE,
     AUDERROR_READING_SPI,
-    AUDERROR_BUFFER_NOT_EMPTY,
     AUDERROR_SAMPLES_POS_OUT_OF_RANGE,
 };
 
 struct AudioBufferData {
-    uint8_t status = AUDBUF_EMPTY;
     uint32_t dataAvailable = 0;
     int32_t* buffer = 0;
     
     int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add);
 
-    void reset() { status = AUDBUF_EMPTY; dataAvailable = 0; }
+    void reset() { dataAvailable = 0; }
 };
 
 struct I2STracker

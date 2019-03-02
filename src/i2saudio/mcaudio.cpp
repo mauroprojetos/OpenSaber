@@ -66,9 +66,6 @@ void I2SAudio::outerFill(int id)
         }
     }
 
-    if (audioBufferData[id].status != AUDBUF_EMPTY)
-        I2SAudio::tracker.timerErrors++;
-
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
     for(int i=0; i<NUM_CHANNELS; ++i) {
@@ -82,14 +79,9 @@ void I2SAudio::outerFill(int id)
 void I2SAudio::dmaCallback(Adafruit_ZeroDMA* dma)
 {
     const uint32_t start = micros();
-    audioBufferData[dmaPlaybackBuffer].status = AUDBUF_EMPTY;
     dmaPlaybackBuffer = (dmaPlaybackBuffer + 1) % NUM_AUDIO_BUFFERS;
     
     I2SAudio::tracker.dmaCalls++;
-    if (audioBufferData[dmaPlaybackBuffer].status != AUDBUF_READY) {
-        I2SAudio::tracker.dmaErrors++;
-    }
-    audioBufferData[dmaPlaybackBuffer].status = AUDBUF_DRAINING;
     int32_t* src = audioBufferData[dmaPlaybackBuffer].buffer;
 
     dma->changeDescriptor(
@@ -178,9 +170,6 @@ void I2SAudio::init()
     i2s.enableTx();
 
     I2SAudio::outerFill(0);     
-    Log.p("Buffer 0 status=").p(audioBufferData[0].status == AUDBUF_READY ? "ready" : "ERROR")
-       .p(" dmaPlaybackBuffer=").p(dmaPlaybackBuffer).eol();
-
     dmaPlaybackBuffer = 1;  // seed to the first, so the dma will switch back to 0.
     stat = audioDMA.startJob();
     Log.p("Audio init complete.").eol();
@@ -323,20 +312,13 @@ void I2SAudio::dumpStatus()
 
 int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add)
 {
-    if (!add && status != AUDBUF_EMPTY) {
-        I2SAudio::tracker.fillErrors++;
-    }
-    status = AUDBUF_FILLING;
-
     uint32_t MILLION2 = 2 * 1024 * 1024;
     if (expander.samples() < expander.pos()) {
         I2SAudio::tracker.fillCritErrors++;
-        status = AUDBUF_READY;
         return AUDERROR_SAMPLES_POS_OUT_OF_RANGE;
     }
     if (expander.samples() > MILLION2 || expander.pos() > MILLION2) {
         I2SAudio::tracker.fillCritErrors++;
-        status = AUDBUF_READY;
         return AUDERROR_SAMPLES_POS_OUT_OF_RANGE;
     }
 
@@ -365,7 +347,6 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
             buffer[i] = 0;
         }
     }
-    status = AUDBUF_READY;
     return AUDERROR_NONE;
 }
 

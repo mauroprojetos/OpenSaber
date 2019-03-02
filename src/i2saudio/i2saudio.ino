@@ -84,7 +84,8 @@ void setup()
     #endif
     i2sAudio.init();
 
-    i2sAudio.setVolume(50, 0);
+    for(int i=0; i<NUM_CHANNELS; ++i)
+        i2sAudio.setVolume(50, i);
 
     Log.p("Free ram:").p(FreeRam()).eol();
 
@@ -139,7 +140,7 @@ void loop()
         uint32_t deltaT = millis() - startTime;
         if (deltaT > DURATION) {
             mode = Mode::NORMAL;
-            i2sAudio.setVolume(256, 0);
+            i2sAudio.setVolume(50, 0);
             #ifdef MULTI_CHANNEL
             i2sAudio.setVolume(0, 1);
             i2sAudio.setVolume(0, 2);
@@ -228,7 +229,7 @@ void loop()
                 i2sAudio.setVolume(0, 1);
                 i2sAudio.setVolume(0, 2);
                 #endif
-                             
+
                 startTime = millis();
                 mode = Mode::SWING;
              
