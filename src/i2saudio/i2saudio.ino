@@ -108,7 +108,7 @@ void loop()
     i2sAudio.process();
     if (statusTimer.tick(t - lastTime)) {
         bool error = i2sAudio.tracker.hasErrors();
-        i2sAudio.dumpStatus();
+        //i2sAudio.dumpStatus();
         while (error) {}
     }
     #if 0
@@ -140,8 +140,10 @@ void loop()
         if (deltaT > DURATION) {
             mode = Mode::NORMAL;
             i2sAudio.setVolume(256, 0);
+            #ifdef MULTI_CHANNEL
             i2sAudio.setVolume(0, 1);
             i2sAudio.setVolume(0, 2);
+            #endif
         }
         else {
             // Hum channel 0
@@ -150,7 +152,7 @@ void loop()
                 FixedNorm base = FixedNorm(1) - FixedNorm(3, 4) * iSin(fraction);
                 i2sAudio.setVolume(base.scale(256), 0);
             }
-
+            #ifdef MULTI_CHANNEL
             // Hum channel 1
             if (deltaT >=0 && deltaT < SHORT) {
                 FixedNorm fraction(deltaT, SHORT*2);
@@ -169,6 +171,7 @@ void loop()
             else {
                 i2sAudio.setVolume(0, 2);
             }
+            #endif
         }
     }
 
@@ -221,9 +224,11 @@ void loop()
                 int high = cToInt(cmd[3]);
 
                 i2sAudio.setVolume(256, 0);
+                #ifdef MULTI_CHANNEL
                 i2sAudio.setVolume(0, 1);
                 i2sAudio.setVolume(0, 2);
-             
+                #endif
+                             
                 startTime = millis();
                 mode = Mode::SWING;
              

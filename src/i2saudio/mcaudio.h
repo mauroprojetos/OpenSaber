@@ -5,8 +5,8 @@
 #include "compress.h"
 #include "iaudio.h"
 
-#define MULTI_CHANNEL
-#define NUM_CHANNELS 4
+//#define MULTI_CHANNEL
+#define NUM_CHANNELS 1
 
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384

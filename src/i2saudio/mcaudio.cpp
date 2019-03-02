@@ -1,6 +1,6 @@
 #include <Arduino.h>    
 
-#define LOG_TIME
+//#define LOG_TIME
 
 // This audio system is set up for using I2S on
 // an Itsy-Bitsy M0. Relies on DMA and SPI memory
@@ -221,7 +221,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
     uint32_t baseAddr = 0;
     readAudioInfo(spiFlash, file, &header, &baseAddr);
 
-    //Log.p("Play [").p(fileIndex).p("]: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
+    Log.p("Play [").p(fileIndex).p("]: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
 
     // Queue members need to be in the no-interupt lock since
     // it is read and modified by the timer callback. readFile()
@@ -304,7 +304,6 @@ void I2SAudio::dumpStatus()
 {
     if (tracker.hasErrors())
         Log.p("Audio tracker ERROR.").eol();
-
     Log.p(" OuterFill calls:").p(tracker.timerCalls)
         .p(" queue:").p(tracker.timerQueued)
         .p(" errors:").p(tracker.timerErrors)
@@ -317,13 +316,14 @@ void I2SAudio::dumpStatus()
         .p(" errors:").p(tracker.fillErrors)
         .p(" crit errors:").p(tracker.fillCritErrors)
         .eol();
+
     tracker.reset();
 }
 
 
 int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add)
 {
-    if (status != AUDBUF_EMPTY) {
+    if (!add && status != AUDBUF_EMPTY) {
         I2SAudio::tracker.fillErrors++;
     }
     status = AUDBUF_FILLING;
