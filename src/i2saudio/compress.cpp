@@ -338,6 +338,26 @@ void Expander::expand2(int32_t* target, uint32_t nSamples, int32_t volume, bool 
     }
 }
 
+
+MemStream::MemStream(const uint8_t* data, uint32_t size) {
+    m_data = data;
+    m_size = size;
+    m_pos = 0;
+}
+
+
+void MemStream::set(uint32_t addr, uint32_t size) {
+    assert(addr == 0);  // just not implemented
+    assert(size == this->m_size);
+    m_pos = 0;
+}
+
+
+void MemStream::rewind() {
+    m_pos = 0;
+}
+
+
 uint32_t MemStream::fetch(uint8_t* buffer, uint32_t nBytes)
 {
     uint32_t n = wav12Min(nBytes, m_size - m_pos);

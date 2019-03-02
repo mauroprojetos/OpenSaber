@@ -34,8 +34,14 @@ Timer2 playingTimer(833);
 uint32_t lastTime = 0;
 
 Random randPlus;
-bool testMode = false;
-uint32_t testTime = 0;
+enum Mode {
+    NORMAL,
+    TEST,
+    SWING
+};
+
+Mode mode = Mode::NORMAL;
+uint32_t startTime = 0;
 
 int FreeRam () {
   char stack_dummy = 0;
@@ -88,7 +94,7 @@ void setup()
 CStr<32> cmd;
 CQueue<16> queue;
 
-int cToInt(char c, int low, int high)
+int cToInt(char c, int low=0, int high=9)
 {
     int v = c - '0';
     if (v > high) v = high;
@@ -117,12 +123,52 @@ void loop()
         i2sAudio.play(id, false, 0);
     }
 
-    if (testMode) {
-        if (!i2sAudio.isPlaying(0)) 
+    if (mode == Mode::TEST) {
+        if(!i2sAudio.isPlaying(0)) 
             i2sAudio.play(5, true, 0);
-        if (testTime <= millis()) {
-            testTime = millis() + randPlus.rand(3000);
+        if (startTime <= millis()) {
+            startTime = millis() + randPlus.rand(3000);
             i2sAudio.play(randPlus.rand(5), false, 0);
+        }
+    }
+    else if (mode == Mode::SWING)
+    {
+        static const uint32_t DURATION = 1000;
+        static const uint32_t SHORT = 700;
+
+        uint32_t deltaT = millis() - startTime;
+        if (deltaT > DURATION) {
+            mode = Mode::NORMAL;
+            i2sAudio.setVolume(256, 0);
+            i2sAudio.setVolume(0, 1);
+            i2sAudio.setVolume(0, 2);
+        }
+        else {
+            // Hum channel 0
+            {
+                FixedNorm fraction(deltaT, DURATION*2);
+                FixedNorm base = FixedNorm(1) - FixedNorm(3, 4) * iSin(fraction);
+                i2sAudio.setVolume(base.scale(256), 0);
+            }
+
+            // Hum channel 1
+            if (deltaT >=0 && deltaT < SHORT) {
+                FixedNorm fraction(deltaT, SHORT*2);
+                FixedNorm low = iSin(fraction);
+                i2sAudio.setVolume(low.scale(256), 1);
+            }
+            else {
+                i2sAudio.setVolume(0, 1);
+            }
+            // Hum channel 2
+            if (deltaT >=DURATION - SHORT && deltaT < DURATION) {
+                FixedNorm fraction(deltaT - (DURATION - SHORT), SHORT*2);
+                FixedNorm high = iSin(fraction);
+                i2sAudio.setVolume(high.scale(256), 2);
+            }
+            else {
+                i2sAudio.setVolume(0, 2);
+            }
         }
     }
 
@@ -131,21 +177,27 @@ void loop()
         if (c == '\n') {
             Log.pt(cmd).eol();
             if (cmd.size() == 2 && cmd[0] == 'p') {
-                i2sAudio.play(cToInt(cmd[1], 0, 9), false, 0);
+                i2sAudio.setVolume(256, 0);
+                i2sAudio.play(cToInt(cmd[1]), false, 0);
             }
             else if (cmd.size() == 2 && cmd[0] == 'l') {
-                i2sAudio.play(cToInt(cmd[1], 0, 9), true, 0);
+                i2sAudio.setVolume(256, 0);
+                i2sAudio.play(cToInt(cmd[1]), true, 0);
             }
             else if (cmd.size() == 3 && cmd[0] == 'p') {
-                i2sAudio.play(cToInt(cmd[1], 0, 9), false, cToInt(cmd[2], 0, 3));
+                i2sAudio.setVolume(256, 0);
+                i2sAudio.play(cToInt(cmd[1]), false, cToInt(cmd[2], 0, 3));
             }
             else if (cmd.size() == 3 && cmd[0] == 'l') {
-                i2sAudio.play(cToInt(cmd[1], 0, 9), true, cToInt(cmd[2], 0, 3));
+                i2sAudio.setVolume(256, 0);
+                i2sAudio.play(cToInt(cmd[1]), true, cToInt(cmd[2], 0, 3));
             }
             else if (cmd[0] == 'p' && cmd.size() > 2) {
+                i2sAudio.setVolume(256, 0);
                 i2sAudio.play(cmd.c_str() + 2, false, 0);
             }
             else if (cmd[0] == 'l' && cmd.size() > 2) {
+                i2sAudio.setVolume(256, 0);
                 i2sAudio.play(cmd.c_str() + 2, true, 0);
             }
             else if (cmd[0] == 'q') {
@@ -156,12 +208,28 @@ void loop()
                 i2sAudio.stop(0);
             }
             else if (cmd == "t") {
-                testMode = !testMode;
-                testTime = 0;   // start w/ evil double play
+                mode = Mode::TEST;
+                startTime = 0;   // start w/ evil double play
             }
             else if (cmd[0] == 'v') {
                 int v = atoi(cmd.c_str() + 1);
                 i2sAudio.setVolume(v, 0);
+            }
+            else if (cmd[0] == 'e') {
+                int base = cToInt(cmd[1]);
+                int low  = cToInt(cmd[2]);
+                int high = cToInt(cmd[3]);
+
+                i2sAudio.setVolume(256, 0);
+                i2sAudio.setVolume(0, 1);
+                i2sAudio.setVolume(0, 2);
+             
+                startTime = millis();
+                mode = Mode::SWING;
+             
+                i2sAudio.play(base, true, 0);
+                i2sAudio.play(low, true, 1);
+                i2sAudio.play(high, true, 2);
             }
             cmd.clear();
         }

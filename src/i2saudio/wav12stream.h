@@ -10,7 +10,7 @@ namespace wav12 {
     class IStream {
     public:
         // Set the head to a particular sound.
-        virtual void set(uint32_t addr, uint32_t size);
+        virtual void set(uint32_t addr, uint32_t size) = 0;
         // Fetch bytes within a sound.
         virtual uint32_t fetch(uint8_t* target, uint32_t nBytes) = 0;
         // Rewind back to the beginning of the sound.
