@@ -6,7 +6,8 @@
 #include "iaudio.h"
 #include "Grinliz_Util.h"
 
-#define NUM_CHANNELS 1
+// 1 or 4
+#define NUM_CHANNELS 4
 
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384

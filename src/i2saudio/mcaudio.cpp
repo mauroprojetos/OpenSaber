@@ -1,6 +1,6 @@
 #include <Arduino.h>    
 
-//#define LOG_TIME
+// #define LOG_TIME
 
 // This audio system is set up for using I2S on
 // an Itsy-Bitsy M0. Relies on DMA and SPI memory
@@ -69,7 +69,9 @@ void I2SAudio::outerFill(int id)
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
     for(int i=0; i<NUM_CHANNELS; ++i) {
-        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), audio->looping[i] > 0, (i > 0));
+        bool add = i > 0;
+        bool looping = audio->looping[i];
+        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), looping, add);
         if (rc != 0) {
             I2SAudio::tracker.timerErrors++;
         }
@@ -212,6 +214,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
 
     Log.p("Play [").p(fileIndex)
         .p("]: channel=").p(channel)
+        .p(" looping=").p(loop ? 1 : 0)
         .p(" lenInBytes=").p(header.lenInBytes)
         .p(" nSamples=").p(header.nSamples)
         .p(" format=").p(header.format).eol();
@@ -336,7 +339,7 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
                 expander.rewind();
             }
             uint32_t toRead = glMin(expander.samples() - expander.pos(), AUDIO_BUFFER_SAMPLES - totalRead);
-            expander.expand2(buffer + totalRead*2, toRead, volume, false);
+            expander.expand2(buffer + totalRead*2, toRead, volume, add);
             totalRead += toRead;
         }
         I2SAudio::tracker.fillSome++;
@@ -344,14 +347,16 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
     else {
         uint32_t toRead = glMin(expander.samples() - expander.pos(), (uint32_t)AUDIO_BUFFER_SAMPLES);
         if (toRead) {
-            expander.expand2(buffer, toRead, volume, false);
+            expander.expand2(buffer, toRead, volume, add);
             I2SAudio::tracker.fillSome++;
         }
         else {
             I2SAudio::tracker.fillEmpty++;
         }
-        for(uint32_t i=toRead*2; i<STEREO_BUFFER_SAMPLES; ++i) {
-            buffer[i] = 0;
+        if (!add) {
+            for(uint32_t i=toRead*2; i<STEREO_BUFFER_SAMPLES; ++i) {
+                buffer[i] = 0;
+            }
         }
     }
     return AUDERROR_NONE;
