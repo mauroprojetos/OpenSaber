@@ -210,12 +210,17 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
     uint32_t baseAddr = 0;
     readAudioInfo(spiFlash, file, &header, &baseAddr);
 
-    Log.p("Play [").p(fileIndex).p("]: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
+    Log.p("Play [").p(fileIndex)
+        .p("]: channel=").p(channel)
+        .p(" lenInBytes=").p(header.lenInBytes)
+        .p(" nSamples=").p(header.nSamples)
+        .p(" format=").p(header.format).eol();
 
     // Queue members need to be in the no-interupt lock since
     // it is read and modified by the timer callback. readFile()
     // above will acquire and release the lock on its own.
 
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     ChangeReq& cr = changeReq[channel];
     cr.addr = baseAddr;
@@ -234,7 +239,7 @@ bool I2SAudio::play(const char* filename, bool loop, int channel)
 {
     int index = MemImage.lookup(filename);
     if (index >= 0) {
-        play(index, loop, channel);
+        play(index, loop, clamp(channel, 0, NUM_CHANNELS-1));
     }
     return true;
 }
@@ -243,6 +248,7 @@ bool I2SAudio::play(const char* filename, bool loop, int channel)
 void I2SAudio::stop(int channel)
 {
     //Log.p("stop").eol();
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     ChangeReq& cr = changeReq[channel];
     cr.addr = 0;
@@ -257,6 +263,7 @@ void I2SAudio::stop(int channel)
 
 bool I2SAudio::isPlaying(int channel) const
 {
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     bool isQueued = changeReq[channel].isQueued;
     bool hasSamples = expander[channel].pos() < expander[channel].samples();    
