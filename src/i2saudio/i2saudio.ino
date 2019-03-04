@@ -140,7 +140,7 @@ void loop()
         if (deltaT > DURATION) {
             mode = Mode::NORMAL;
             //i2sAudio.stop(0);
-            //i2sAudio.setVolume(masterVolume, 0);
+            i2sAudio.setVolume(masterVolume, 0);
             #if NUM_CHANNELS > 1
             i2sAudio.setVolume(0, 1);
             i2sAudio.setVolume(0, 2);
@@ -214,11 +214,9 @@ void loop()
                 i2sAudio.setVolume(masterVolume, 0);
             }
             else if (cmd[0] == 'e') {
-                int base = cToInt(cmd[1]);
-                int low  = cToInt(cmd[2]);
-                int high = cToInt(cmd[3]);
+                int low  = cToInt(cmd[1]);
+                int high = cToInt(cmd[2]);
 
-                i2sAudio.setVolume(0, 0);
                 #if NUM_CHANNELS > 1
                 i2sAudio.setVolume(0, 1);
                 i2sAudio.setVolume(0, 2);
@@ -227,7 +225,6 @@ void loop()
                 startTime = millis();
                 mode = Mode::SWING;
              
-                i2sAudio.play(base, true, 0);
                 i2sAudio.play(low, true, 1);
                 i2sAudio.play(high, true, 2);
             }

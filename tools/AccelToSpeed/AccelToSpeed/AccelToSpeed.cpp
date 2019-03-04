@@ -29,8 +29,8 @@ struct RGBA {
 };
 
 static const RGBA RED = { 255, 128, 0, 255 };
-static const RGBA GREEN = { 0, 255, 0, 255 };
-static const RGBA BLUE = { 0, 128, 255, 255 };
+static const RGBA GREEN = { 0, 255, 0, 255 };       // 
+static const RGBA BLUE = { 0, 128, 255, 255 };      // timestamp
 static const bool CLIP = true;
 
 int main(int argc, char* argv[])
@@ -134,6 +134,13 @@ int main(int argc, char* argv[])
 
     std::vector<float> speeds;
     std::vector<float> mix;
+
+    /*
+        Accel: orange
+        Speed: green
+        Mix:   yellow
+    */
+
 
     for (size_t i = 0; i < data.size(); ++i) {
         const AccelData& ad = data[i];
