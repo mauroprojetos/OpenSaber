@@ -139,25 +139,47 @@ module columnJoint(dz, dOuter, trim)
     unsupported printing. Made to hold
     switches, boards, etc. 
 */
-module simpleBridge(diameter, dyToTop, yThickness, dz, addWidth=0)
+module simpleBridge(diameter, dyToTop, yThickness, dz, addWidth=0, flatFill=false)
 {
     L = 50;
     delta = yThickness * 1.2;
 
-    PATH = [
-        [-L, dyToTop - yThickness - L],
-        [0, dyToTop - yThickness],
-        [L, dyToTop - yThickness - L],
-        [L, dyToTop - L],
-        [delta + addWidth, dyToTop],
-        [-delta - addWidth, dyToTop],
-        [-L, dyToTop - L]
-    ];
-
-    translate([0, 0, -dz/2]) {
-        intersection() {
-            cylinder(h=dz, d=diameter);
-            polygonXY(dz, PATH);
+    // Writing this without the 'if' enclosing the PATH
+    // declaration revealed all sorts of interesting
+    // OpenScad bugs.
+    //
+    if (flatFill) {
+        PATH = [
+            [-L, dyToTop - yThickness - L],
+            [0, dyToTop - yThickness],
+            [L, dyToTop - yThickness - L],
+            [L, dyToTop],
+            [delta + addWidth, dyToTop],
+            [-delta - addWidth, dyToTop],
+            [-L, dyToTop]
+        ];
+        translate([0, 0, -dz/2]) {
+            intersection() {
+                cylinder(h=dz, d=diameter);
+                polygonXY(dz, PATH);
+            }
+        }
+    }
+    else {
+        PATH = [
+            [-L, dyToTop - yThickness - L],
+            [0, dyToTop - yThickness],
+            [L, dyToTop - yThickness - L],
+            [L, dyToTop - L],
+            [delta + addWidth, dyToTop],
+            [-delta - addWidth, dyToTop],
+            [-L, dyToTop - L]
+        ];
+        translate([0, 0, -dz/2]) {
+            intersection() {
+                cylinder(h=dz, d=diameter);
+                polygonXY(dz, PATH);
+            }
         }
     }
 }
@@ -717,7 +739,7 @@ module oledHolder(outer, t, dz, dzToPCB, dyPCB)
 
 INCHES_TO_MM        = 25.4;
 H_TEETH             = 4.0;
-H_ADVANCED_THREAD   = 12.0;                     // FIXME
+H_ADVANCED_THREAD   = 13.2; // larger to make threading easier
 H_RING              = 3.0;
 H_HEATSINK          = 0.45 + 0.890 * INCHES_TO_MM;
 D_ADVANCED_LED      = 20.000;                   // hole where the light shines.

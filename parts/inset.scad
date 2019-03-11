@@ -14,7 +14,7 @@ MID_BRIDGE_DZ = 10;
 WOOD_DY = -8;
 POST_DY = 5;
 POWER_DY = 7.5;
-SWITCH_DY = 9.5;
+SWITCH_DY = 10.5;
 
 module insetCapsule(extends, dy, deltaD=0)
 {
@@ -92,20 +92,31 @@ module insetHolder( diameter,
             translate([0, 0, Z_MID])
                 attachPost(D_INNER);
 
-            // Switch holder. Fixme: needs side holders?
-            translate([0, 0, Z_MID + DZ_SWITCH])
-                simpleBridge(D_INNER, R_INNER - SWITCH_DY, 4, SWITCH_BRIDGE_DZ);
+            // Switch holder.
+            intersection() {
+                cylinder(h=300, d=D_INNER);
+                translate([0, 0, Z_MID + DZ_SWITCH]) {
+                    simpleBridge(D_INNER, R_INNER - SWITCH_DY, 3, SWITCH_BRIDGE_DZ, flatFill=true);
 
+                    X_SWITCH = 6.5; // FIXME
+                    Y_SWITCH = 3.0;
+                    
+                    translate([X_SWITCH/2, R_INNER - SWITCH_DY, -SWITCH_BRIDGE_DZ/2])
+                        cube(size=[50, Y_SWITCH, SWITCH_BRIDGE_DZ]);
+                    mirror([-1, 0, 0])
+                        translate([X_SWITCH/2, R_INNER - SWITCH_DY, -SWITCH_BRIDGE_DZ/2])
+                            cube(size=[50, Y_SWITCH, SWITCH_BRIDGE_DZ]);
+                }
+            }
             // Power holder.
             translate([0, 0, Z_MID + DZ_PORT]) {
                 simpleBridge(D_INNER, R_INNER - POWER_DY, 3, 14, 4);
             }
         }
 
-        // Underside of power port
+        // Power port
         translate([0, 0, Z_MID + DZ_PORT]) {
             rotate([-90, 0, 0]) {
-                // Initially measured.
                 cylinder(h=50, d=8.0);
                 cylinder(h=R_INNER - POWER_DY - 1.5, d=11.5);
             }
@@ -118,10 +129,11 @@ module insetHolder( diameter,
         translate([0, 0, -50]) cylinder(h=200, d=D_INNER);
         translate([0, Y_INSET, Z_MID]) {
             difference() {
-                translate([0, -4, 0])
+                DY = -3;
+                translate([0, DY, 0])
                     zCapsule(DZ_PORT, DZ_SWITCH, rCapsule+2);
                 zCapsule(DZ_PORT, DZ_SWITCH, rCapsule);          // the actual wood
-                translate([0, -4, 0])
+                translate([0, DY - EPS*2, 0])
                     zCapsule(DZ_PORT, DZ_SWITCH, rCapsule-2);
 
                 stockX = diameterCapsule;

@@ -1,12 +1,13 @@
 use <../inset.scad>
 use <../commonUnified.scad>
+use <../shapes.scad>
 include <dim.scad>
 
-$fn = 60;
+$fn = 80;
 EPS = 0.01;
 
-DRAW_AFT = false;
-DRAW_FORE = true;
+DRAW_AFT = true;
+DRAW_FORE = false;
 DRAW_EMITTER = false;
 
 module flatBottom()
@@ -40,9 +41,21 @@ module dotstarCutout()
 {
     N_DOTSTAR = 4;
     Z_DOTSTAR_LEN = dotstarStripZLen(N_DOTSTAR);
-    DOTSTAR_STRIP_XZ = 12.4;
-    translate([R_INNER - 2, -DOTSTAR_STRIP_XZ/2, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
-        cube(size=[10, DOTSTAR_STRIP_XZ, Z_DOTSTAR_LEN]);
+    DOTSTAR_STRIP_XZ = 12.8;
+    
+    // Railing (so handy) and dotstar cutout.
+    translate([R_INNER - 3.0, -DOTSTAR_STRIP_XZ/2, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
+        cube(size=[0.8, DOTSTAR_STRIP_XZ, Z_DOTSTAR_LEN]);
+    }
+
+    OFFSET = 2;
+    translate([R_INNER - 3.0, -DOTSTAR_STRIP_XZ/2 + OFFSET, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
+        xRoofCube([10, DOTSTAR_STRIP_XZ - OFFSET, Z_DOTSTAR_LEN + 4]);
+    }
+
+    // Extra cutout for wiring.
+    translate([R_INNER - 6.0, -DOTSTAR_STRIP_XZ/2+1, M_CAPSULE_CENTER + 12]) {
+        xRoofCube([10, DOTSTAR_STRIP_XZ-4, 4]);
     }
 }
 
@@ -56,7 +69,7 @@ if (DRAW_FORE)
             translate([0, 0, M_BATTERY_FRONT]) {
                 difference() {
                     H = M_CAPSULE_BACK - M_BATTERY_FRONT;
-                    tube(h=H, do=D_INNER, di=D_INNER - 6);
+                    tube(h=H, do=D_INNER, di=D_INNER - 8);
                     translate([0, -1, 0]) 
                         cylinder(h=H, d=D_INNER - 6);
                 }
@@ -76,13 +89,17 @@ if (DRAW_FORE)
         translate([0, 0, M_BATTERY_FRONT]) {
             keyJoint(8, D_INNER + EPS*4, D_INNER - 4.0, 0.0, 0.0, true);
         }
-        dotstarCutout();
+        mirror([-1, 0, 0]) dotstarCutout();
         flatBottom();
+        
+        translate([0, 0, M_EMITTER])
+            for(r=[0:5])
+                rotate([0, 0, 60*r])
+                    capsule(-10, 10, 2);
     }
-
     //color("red") dotstarCutout();
-
 }
+
 
 if (DRAW_EMITTER) {
     translate([0, 0, M_EMITTER]) {

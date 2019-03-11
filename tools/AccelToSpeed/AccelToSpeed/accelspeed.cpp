@@ -7,47 +7,59 @@ AccelSpeed::AccelSpeed()
 {
 }
 
-void AccelSpeed::push(float ax, float ay, float az, uint32_t microDT)
+void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
 {
-    static const float MICRO_TO_S = 1.f / 1000000.0f;
+    static const float MICRO_TO_S = float(1.0 / (1000.0 * 1000.0));
     static const float G = 9.81f;    // m/s2
 
     const float dts = MICRO_TO_S * float(microDT);
-    // Surprisingly low thresholf for the damping to kick in.
-    const float EDGE = MIX_LOWER + 0.25f * (MIX_CAP - MIX_LOWER);
 
     // V(m/s) = V(m/s) + a(m/s2) * seconds
-    vx = vx + ax * G * dts;
-    vy = vy + ay * G * dts;
-    vz = vz + az * G * dts;
+    vx = vx + ax_g * dts * G;
+    vy = vy + ay_g * dts * G;
+    vz = vz + az_g * dts * G;
 
     m_speed = (float)sqrt(vx*vx + vy * vy + vz * vz);
-    if (m_speed > 0.5f) {
-        // Once the speed jumps "enough", increase
-        // damping.
-        upEdge = false;
+
+    float dS = (m_speed - m_speed1) / dts;
+    m_dSpeed = m_dSpeed * 0.6f + dS * 0.4f;
+
+    m_speed2 = m_speed1;
+    m_speed1 = m_speed;
+
+    static const float MIX_THRESHOLD = 2.5; // g
+    static const float FALLING_THRESHOLD = 2.0;
+    if (!m_mixThreshold && m_dSpeed > MIX_THRESHOLD)
+        m_mixThreshold = true;
+    if (m_mixThreshold && m_dSpeed < FALLING_THRESHOLD)
+        m_falling = true;
+
+    m_mix = 0.0f;
+    if (m_falling) {
+        //if (m_mix > m_falling) m_mix = 0.0;
+        //if (m_mix )
     }
 
-    if (m_speed <= MIX_LOWER) {
-        m_mix = 0;
-        upEdge = true;
-    }
-    else if (m_speed >= MIX_CAP) {
-        m_mix = 1;
-    }
-    else {
-        m_mix = (m_speed - MIX_LOWER) / (MIX_CAP - MIX_LOWER);
-    }
+    static const float G_LESS = 1.05f;
+    static const float G_MORE = 1.2f;
+
+    float g2 = ax_g * ax_g + ay_g * ay_g + az_g * az_g;
+    bool more = (g2 > 0.5) && (g2 < 1.5);
 
     // Oppose velocity with acceleration equal to G
     if (m_speed != 0) {
-        const float F = upEdge ? F_UP : F_DOWN;
-        float gx = -G * F * dts * vx / m_speed;
-        float gy = -G * F * dts * vy / m_speed;
-        float gz = -G * F * dts * vz / m_speed;
-        
-        vx += gx;
-        vy += gy;
-        vz += gz;
+        float gDrag = more ? G_MORE : G_LESS;
+        float speedDrag = gDrag * G * dts;
+
+        if (m_speed <= speedDrag) {
+            vx = vy = vz = 0;
+            m_falling = false;
+            m_mixThreshold = false;
+        }
+        else {
+            vx += -speedDrag * (vx / m_speed);
+            vy += -speedDrag * (vy / m_speed);
+            vz += -speedDrag * (vz / m_speed);
+        }
     }
 }

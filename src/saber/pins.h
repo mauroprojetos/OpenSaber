@@ -29,16 +29,16 @@ SOFTWARE.
 // Note: Serial connection should be set to 19200 baud with a newline after commands.
 
 
-#define SABER_MODEL_TEST			255
-#define SABER_MODEL_GECKO			1	// PCB, Teensy 3, external amp and accel
-#define SABER_MODEL_BLACK			2	// PCB, Prop Shield, Teensy 3, Dotstar UI
-//#define SABER_MODEL_SHOCK			3	// PCB, Prop Shield, Teensy 3, OLED. Dropped; heatsink crushed carriage when I dropped it. Become SHOCK2.
+#define SABER_MODEL_TEST					255
+#define SABER_MODEL_GECKO					1	// PCB, Teensy 3, external amp and accel
+#define SABER_MODEL_BLACK					2	// PCB, Prop Shield, Teensy 3, Dotstar UI
+//#define SABER_MODEL_SHOCK				3	// PCB, Prop Shield, Teensy 3, OLED. Dropped; heatsink crushed carriage when I dropped it. Become SHOCK2.
 #define SABER_MODEL_SILVER_SHOCK	4	// PCB, Prop Shield, Teensy 3
-//#define SABER_MODEL_BO			5	// 2 button prop shield Never finished
-//#define SABER_MODEL_PROTO 		6	// Burned out; never needed to rebuild.
-#define SABER_MODEL_TANO 			7
-//#define SABER_MODEL_SISTER 		8	// Shield v3, Teensy 3.5, RF24 communication
-#define SABER_MODEL_AQUATIC			9
+//#define SABER_MODEL_BO					5	// 2 button prop shield Never finished
+//#define SABER_MODEL_PROTO 			6	// Burned out; never needed to rebuild.
+#define SABER_MODEL_TANO 					7
+//#define SABER_MODEL_SISTER 			8	// Shield v3, Teensy 3.5, RF24 communication
+#define SABER_MODEL_AQUATIC				9
 #define SABER_MODEL_SHOCK2		   10	// Shield v3, Teensy 3.5, Dotstar, Display (woh)
 #define SABER_MODEL_VIGILANCE	   11	// Shield v4, Teensy 3.5, Dotstar crystals, bubble display AKA Tali
 #define SABER_MODEL_AHSOKA		   12
@@ -47,45 +47,46 @@ SOFTWARE.
 #define SABER_MODEL_SISTER_2	   15   // Shield v4, Teensy 3.5, 5x7 Display. Replaced the cool-but-useless wirelss communication
 #define SABER_MODEL_KENOBI_IV	   16   // ItsyBitsy, Shield v1,Neopixel
 #define SABER_MODEL_AQUATIC_2	   17   // ItsyBitsy, Shield v1c, Dotstar
+#define SABER_MODEL_TYVOKKA			 18   // ItsyBitsy, Shield v1c, Dotstar
 
-#define SABER_SUB_MODEL_NONE		0
-#define SABER_SUB_MODEL_LUNA		1
-#define SABER_SUB_MODEL_CELESTIA	2
+#define SABER_SUB_MODEL_NONE				0
+#define SABER_SUB_MODEL_LUNA				1
+#define SABER_SUB_MODEL_CELESTIA		2
 #define SABER_SUB_MODEL_SHOTO       3
 #define SABER_SUB_MODEL_STANDARD    4
 
 // ----------------------------------
-#define SERIAL_DEBUG 				0
-#define SABER_MODEL 				SABER_MODEL_AQUATIC_2
-#define SABER_SUB_MODEL				SABER_SUB_MODEL_STANDARD
+#define SERIAL_DEBUG 				1
+#define SABER_MODEL 				SABER_MODEL_TYVOKKA
+#define SABER_SUB_MODEL			SABER_SUB_MODEL_STANDARD
 // ----------------------------------
 
 #define LED_TYPE_RGB				1   // red-green-blue
 #define LED_TYPE_BBG				2   // blue-blue-green
 #define LED_TYPE_WWG				3   // white-white-green
-#define LED_TYPE_GGC				4	// green-green-cyan
+#define LED_TYPE_GGC				4	  // green-green-cyan
 
-#define SABER_SOUND_SD 				1	// external memory card
+#define SABER_SOUND_SD 					1	// external memory card
 #define SABER_SOUND_FLASH 			2	// M0 memory
 
-#define SABER_DISPLAY_128_32		1
-#define SABER_DISPLAY_7_5_DEPRECATED 2	// NON shifted. So many wires. So many.
-#define SABER_DISPLAY_SEGMENT		3	// Shifted
-#define SABER_DISPLAY_7_5 			4	// Shifted
+#define SABER_DISPLAY_128_32					1
+#define SABER_DISPLAY_7_5_DEPRECATED 	2	// NON shifted. So many wires. So many.
+#define SABER_DISPLAY_SEGMENT					3	// Shifted
+#define SABER_DISPLAY_7_5 						4	// Shifted
 
 #define SABER_LED_NEOPIXEL			1
-#define SABER_LED_DOTSTAR			2
+#define SABER_LED_DOTSTAR				2
 
-#define PCB_VERSION_1				1   // PCB, Teensy 3.2, external amp and accel
-#define PCB_VERSION_5				5   // PCB, Prop Shield, Teensy 3.2, OLED (VERIFY)
-#define PCB_VERSION_7				7	// Split PCB. Prop shield. Teensy 3.5.
-#define PCB_VERSION_9				9   // Split PCB. Prop shield. Teensy 3.5.
-#define PCB_SHIELD_2			   12	// Grinliz shield + Teensy 3.5
+#define PCB_VERSION_1					1   // PCB, Teensy 3.2, external amp and accel
+#define PCB_VERSION_5				  5   // PCB, Prop Shield, Teensy 3.2, OLED (VERIFY)
+#define PCB_VERSION_7				  7	  // Split PCB. Prop shield. Teensy 3.5.
+#define PCB_VERSION_9				  9   // Split PCB. Prop shield. Teensy 3.5.
+#define PCB_SHIELD_2			   12	  // Grinliz shield + Teensy 3.5
 #define PCB_SHIELD_3			   13	
 #define PCB_SHIELD_4			   14	
 #define PCB_SHIELD_5			   15
 #define PCB_ITSY_1				   16
-#define PCB_ITSY_1C				   17	// 1B was a bad run, 1C adds dotstar support
+#define PCB_ITSY_1C				   17	  // 1B was a bad run, 1C adds dotstar support
 
 static const int EEPROM_SIZE = 512;
 
@@ -643,6 +644,42 @@ static const int32_t LOW_VOLTAGE 		= 3400;		// 3500 gets sketchy. By 3.4 we're w
 
 	static const int32_t UVOLT_MULT = 5019;	
 	#define ID_STR "Aquatic 2 Cree XPE2 RGB"
+
+	// Heat sink compound; copper TCSS heatsink.
+	static const int32_t RED_VF   = 2200;   // milli-volts
+	static const int32_t RED_I    = 400;    // milli-amps
+	static const int32_t RED_R    = 4700;   // milli-ohms
+
+	static const int32_t GREEN_VF = 3200;
+	static const int32_t GREEN_I  = 400;
+	static const int32_t GREEN_R  = 1000;
+
+	static const int32_t BLUE_VF  = 3100;
+	static const int32_t BLUE_I   = 400;
+	static const int32_t BLUE_R   = 1800;
+
+	static const int VOLUME_1 = 15;
+	static const int VOLUME_2 = 50;
+	static const int VOLUME_3 = 120;
+	static const int VOLUME_4 = 204;
+
+#elif (SABER_MODEL == SABER_MODEL_TYVOKKA)
+	#define PCB_VERSION 			PCB_ITSY_1C
+	#define SABER_SOUND_ON 			SABER_SOUND_FLASH
+	#define SABER_VOLTMETER			
+	#define SABER_BUTTON 			Button::INTERNAL_PULLUP
+	#define SABER_UI_LED			SABER_LED_DOTSTAR
+
+	#define SABER_NUM_LEDS 			4
+	#define SABER_UI_START			0
+	#define SABER_UI_COUNT			4
+	#define SABER_UI_BRIGHTNESS		16		
+	#define SABER_UI_IDLE_MEDITATION
+
+	#define SABER_SOUND_DEF SABER_SOUND_DEF_BESPIN_ROGUE
+
+	static const int32_t UVOLT_MULT = 5019;	
+	#define ID_STR "Tyvokka Cree XPE2 RGB"
 
 	// Heat sink compound; copper TCSS heatsink.
 	static const int32_t RED_VF   = 2200;   // milli-volts
