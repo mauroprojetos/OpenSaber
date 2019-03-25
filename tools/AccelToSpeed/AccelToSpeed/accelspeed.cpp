@@ -2,9 +2,40 @@
 #include <assert.h>
 #include <math.h>
 
+static const float G_LESS = 1.05f;
+static const float G_MORE = 1.2f;
+static const float DSPEED_EASING = 0.6f;
+static const float MIX_EASING = 0.1f; // 0.15f;
+static const float MOTION_THRESHOLD = 2.0f;
+static const float MOTION_FULL_VOLUME = 6.0;
 
 AccelSpeed::AccelSpeed()
 {
+}
+
+void AccelSpeed::calcMix()
+{
+    float mix = 0;
+    if (m_maxDSpeed == 0.f) {
+        mix = 0;
+    }
+    else if (m_minDSpeed < 0 && m_dSpeed > m_minDSpeed) {
+        mix = 1.0f;
+    }
+    else {
+        // dSpeed / maxDSpeed is roughly 1 to -1
+        float f = 0.5f - 0.5f * (m_dSpeed / m_maxDSpeed);
+        mix = Clamp(f, 0.0f, 1.0f);
+    }
+    m_mix = mix * MIX_EASING + m_mix1 * (1.0f - MIX_EASING);
+    m_mix1 = m_mix;
+}
+
+float AccelSpeed::swingVolume() const
+{
+    if (m_speed < MOTION_THRESHOLD) return 0.f;
+    if (m_speed > MOTION_FULL_VOLUME) return 1.0f;
+    return (m_speed - MOTION_THRESHOLD) / (MOTION_FULL_VOLUME - MOTION_THRESHOLD);
 }
 
 void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
@@ -21,27 +52,17 @@ void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
 
     m_speed = (float)sqrt(vx*vx + vy * vy + vz * vz);
 
+    // Use const time as an approximation.
     float dS = (m_speed - m_speed1) / dts;
-    m_dSpeed = m_dSpeed * 0.6f + dS * 0.4f;
+    m_dSpeed = m_dSpeed * DSPEED_EASING + dS * (1.0f - DSPEED_EASING);
 
-    m_speed2 = m_speed1;
     m_speed1 = m_speed;
 
-    static const float MIX_THRESHOLD = 2.5; // g
-    static const float FALLING_THRESHOLD = 2.0;
-    if (!m_mixThreshold && m_dSpeed > MIX_THRESHOLD)
-        m_mixThreshold = true;
-    if (m_mixThreshold && m_dSpeed < FALLING_THRESHOLD)
-        m_falling = true;
-
-    m_mix = 0.0f;
-    if (m_falling) {
-        //if (m_mix > m_falling) m_mix = 0.0;
-        //if (m_mix )
+    if (m_maxDSpeed != 0.0f || m_speed > MOTION_THRESHOLD) {
+        m_maxDSpeed = Max(m_dSpeed, m_maxDSpeed);
+        m_minDSpeed = Min(m_dSpeed, m_minDSpeed);
     }
-
-    static const float G_LESS = 1.05f;
-    static const float G_MORE = 1.2f;
+    calcMix();
 
     float g2 = ax_g * ax_g + ay_g * ay_g + az_g * az_g;
     bool more = (g2 > 0.5) && (g2 < 1.5);
@@ -53,8 +74,10 @@ void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
 
         if (m_speed <= speedDrag) {
             vx = vy = vz = 0;
-            m_falling = false;
-            m_mixThreshold = false;
+            m_maxDSpeed = 0;
+            m_minDSpeed = 0;
+            m_mix = 0;
+            m_mix1 = 0;
         }
         else {
             vx += -speedDrag * (vx / m_speed);
