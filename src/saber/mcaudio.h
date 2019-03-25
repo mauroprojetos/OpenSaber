@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include "compress.h"
 #include "iaudio.h"
+#include "Grinliz_Util.h"
 
-#define MULTI_CHANNEL
-#define NUM_CHANNELS 4
+// 1 or 4
+#define NUM_CHANNELS 1
 
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384
@@ -21,27 +22,18 @@ class Adafruit_ZeroDMA;
 class SPIStream;
 
 enum {
-    AUDBUF_EMPTY,
-    AUDBUF_FILLING,
-    AUDBUF_DRAINING,
-    AUDBUF_READY
-};
-
-enum {
     AUDERROR_NONE,
     AUDERROR_READING_SPI,
-    AUDERROR_BUFFER_NOT_EMPTY,
     AUDERROR_SAMPLES_POS_OUT_OF_RANGE,
 };
 
 struct AudioBufferData {
-    uint8_t status = AUDBUF_EMPTY;
     uint32_t dataAvailable = 0;
     int32_t* buffer = 0;
     
     int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add);
 
-    void reset() { status = AUDBUF_EMPTY; dataAvailable = 0; }
+    void reset() { dataAvailable = 0; }
 };
 
 struct I2STracker
@@ -75,7 +67,8 @@ public:
     I2SAudio(Adafruit_ZeroI2S& i2s, Adafruit_ZeroDMA& dma, Adafruit_SPIFlash& spiFlash);
 
     virtual void init();
-    void initStream(wav12::IStream* stream, int channel=0) { iStream[channel] = stream;}
+    // Initialize the streams before the init() call.
+    void initStream(wav12::IStream* stream, int channel=0) { iStream[clamp(channel, 0, NUM_CHANNELS-1)] = stream;}
 
     bool isInitialized() const { return _instance != 0; }
 
@@ -90,8 +83,8 @@ public:
     void dumpStatus();
 
     // Volume 256 is "full" - can boost or cut from there.
-    virtual void setVolume(int v, int channel) { volume256[channel] = v; }
-    virtual int volume(int channel) const { return volume256[channel]; }
+    virtual void setVolume(int v, int channel) { volume256[clamp(channel, 0, NUM_CHANNELS-1)] = v; }
+    virtual int volume(int channel) const { return volume256[clamp(channel, 0, NUM_CHANNELS-1)]; }
 
     void testReadRate(int index);
 
@@ -116,7 +109,10 @@ private:
         }
     };
 
-    int32_t expandVolume(int channel) const { return this->volume(channel) * 256; }
+    int32_t expandVolume(int channel) const { 
+        channel = clamp(channel, 0, NUM_CHANNELS-1);
+        return this->volume(channel) * 256; 
+    }
 
     static I2SAudio* _instance;
     static void dmaCallback(Adafruit_ZeroDMA *dma);

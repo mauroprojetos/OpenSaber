@@ -226,9 +226,7 @@ int SFX::calcSlot(const char* name )
     else if (istrStarts(name, "IDLE")    || istrStarts(name, "HUM"))        slot = SFX_IDLE;
     else if (istrStarts(name, "IMPACT")  || istrStarts(name, "CLASH"))      slot = SFX_IMPACT;
     else if (istrStarts(name, "MOTION")  || istrStarts(name, "SWING"))      slot = SFX_MOTION;
-    //else if (istrStarts(name, "USRHOLD") || istrStarts(name, "LOCKUP"))     slot = SFX_USER_HOLD;
     else if (istrStarts(name, "USRTAP")  || istrStarts(name, "BLASTER"))    slot = SFX_USER_TAP;
-    //else if (istrStarts(name, "SPIN"))                                      slot = SFX_SPIN;
 
     return slot;
 }
@@ -280,7 +278,7 @@ bool SFX::playSound(int sound, int mode, bool playIfOff)
         m_bladeOn = false;
     }
 
-    if (!m_player->isPlaying()) {
+    if (!m_player->isPlaying(0)) {
         m_currentSound = SFX_NONE;
     }
 
@@ -304,10 +302,10 @@ bool SFX::playSound(int sound, int mode, bool playIfOff)
             path = m_filename[track].c_str();
         }
         if (m_savedVolume >= 0) {
-            m_player->setVolume(m_savedVolume);
+            m_player->setVolume(m_savedVolume, 0);
             m_savedVolume = -1;
         }
-        m_player->play(path.c_str());
+        m_player->play(path.c_str(), (sound == SFX_IDLE), 0);
         m_currentSound = sound;
         m_lastSFX = sound;
         return true;
@@ -360,11 +358,11 @@ bool SFX::playUISound(const char* name, bool prepend)
 #endif
     
     if (m_savedVolume < 0) {
-        m_savedVolume = m_player->volume();
+        m_savedVolume = m_player->volume(0);
     }
 
-    m_player->setVolume(128);
-    return m_player->play(path.c_str());
+    m_player->setVolume(128, 0);
+    return m_player->play(path.c_str(), false, 0);
 }
 
 bool SFX::playSound(const char* sfx)
@@ -372,10 +370,10 @@ bool SFX::playSound(const char* sfx)
     if (!m_player) return false;
 
     if (m_savedVolume >= 0) {
-        m_player->setVolume(m_savedVolume);
+        m_player->setVolume(m_savedVolume, 0);
         m_savedVolume = -1;
     }
-    m_player->play(sfx);
+    m_player->play(sfx, false, 0);
     return true;
 }
 
@@ -383,7 +381,7 @@ void SFX::stopSound()
 {
     if (!m_player) return;
 
-    m_player->stop();
+    m_player->stop(0);
     m_currentSound = SFX_NONE;
 }
 
@@ -391,10 +389,10 @@ void SFX::process()
 {
     if (!m_player) return;
 
-    if (!m_player->isPlaying()) {
+    if (!m_player->isPlaying(0)) {
         if (m_savedVolume >= 0) {
             //Log.p("restoring volume=").p(m_savedVolume).eol();
-            m_player->setVolume(m_savedVolume);
+            m_player->setVolume(m_savedVolume, 0);
             m_savedVolume = -1;
         }
         // Play the idle sound if the blade is on.
@@ -467,14 +465,6 @@ bool SFX::readHeader(const char* filename, uint32_t* lengthMillis)
 }
 #endif
 
-/*
-const uint32_t SFX::lengthMillis() const
-{
-    if (!m_player) return 0;
-    return m_player->lengthMillis();
-}
-*/
-
 void SFX::readIgniteRetract()
 {
     CStr<25> path;
@@ -496,11 +486,11 @@ void SFX::setVolume204(int vol)
     vol = constrain(vol, 0, 204);
     if (vol >= 204) {
         if (m_player)
-            m_player->setVolume(256);
+            m_player->setVolume(256, 0);
     }
     else {
         if (m_player)
-            m_player->setVolume(vol * 256 / 204);
+            m_player->setVolume(vol * 256 / 204, 0);
     }
 }
 
@@ -508,7 +498,7 @@ void SFX::setVolume204(int vol)
 uint8_t SFX::getVolume204() const
 {
     if (m_player)
-        return m_player->volume() * 204 / 256;
+        return m_player->volume(0) * 204 / 256;
     return 160;
 }
 
