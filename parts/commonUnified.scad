@@ -1,4 +1,5 @@
 use <shapes.scad>
+use <baffles.scad>
 
 // TODO: unify the OledHolder and the PCB holder
 
@@ -139,25 +140,47 @@ module columnJoint(dz, dOuter, trim)
     unsupported printing. Made to hold
     switches, boards, etc. 
 */
-module simpleBridge(diameter, dyToTop, yThickness, dz, addWidth=0)
+module simpleBridge(diameter, dyToTop, yThickness, dz, addWidth=0, flatFill=false)
 {
     L = 50;
     delta = yThickness * 1.2;
 
-    PATH = [
-        [-L, dyToTop - yThickness - L],
-        [0, dyToTop - yThickness],
-        [L, dyToTop - yThickness - L],
-        [L, dyToTop - L],
-        [delta + addWidth, dyToTop],
-        [-delta - addWidth, dyToTop],
-        [-L, dyToTop - L]
-    ];
-
-    translate([0, 0, -dz/2]) {
-        intersection() {
-            cylinder(h=dz, d=diameter);
-            polygonXY(dz, PATH);
+    // Writing this without the 'if' enclosing the PATH
+    // declaration revealed all sorts of interesting
+    // OpenScad bugs.
+    //
+    if (flatFill) {
+        PATH = [
+            [-L, dyToTop - yThickness - L],
+            [0, dyToTop - yThickness],
+            [L, dyToTop - yThickness - L],
+            [L, dyToTop],
+            [delta + addWidth, dyToTop],
+            [-delta - addWidth, dyToTop],
+            [-L, dyToTop]
+        ];
+        translate([0, 0, -dz/2]) {
+            intersection() {
+                cylinder(h=dz, d=diameter);
+                polygonXY(dz, PATH);
+            }
+        }
+    }
+    else {
+        PATH = [
+            [-L, dyToTop - yThickness - L],
+            [0, dyToTop - yThickness],
+            [L, dyToTop - yThickness - L],
+            [L, dyToTop - L],
+            [delta + addWidth, dyToTop],
+            [-delta - addWidth, dyToTop],
+            [-L, dyToTop - L]
+        ];
+        translate([0, 0, -dz/2]) {
+            intersection() {
+                cylinder(h=dz, d=diameter);
+                polygonXY(dz, PATH);
+            }
         }
     }
 }
@@ -403,7 +426,7 @@ module oneBaffle(   d,
                     dz,
                     battery=true,       // space for the battery
                     mc=true,            // space for the microcontroller
-                    bridge=true,        // create a bridge to the next baffle. designed to print w/o support material. 
+                    bridge=1,           // create a bridge to the next baffle. designed to print w/o support material. 
                     mcSpace=false,      // lots of space for the microcontroller
                     dExtra=0,           // additional diameter
                     scallop=false,      // outside curves
@@ -453,19 +476,30 @@ module oneBaffle(   d,
         }
     }
 
-    if (bridge) {
-        yBridge = yAtX(X_BRIDGE+T_BRIDGE, d/2);
+    if (bridge > 0) {
+        if (bridge == 1) 
+        {
 
-        translate([X_BRIDGE, -yBridge, dz]) 
-            baffleHalfBridge(dz, T_BRIDGE);        
-        mirror([1, 0, 0]) translate([X_BRIDGE, -yBridge, dz]) 
-            baffleHalfBridge(dz, T_BRIDGE);
+            yBridge = yAtX(X_BRIDGE+T_BRIDGE, d/2);
 
-        translate([X_BRIDGE, yBridge - dz*2, dz]) 
-            baffleHalfBridge(dz, T_BRIDGE);        
-        mirror([1, 0, 0]) translate([X_BRIDGE, yBridge - dz*2, dz]) 
-            baffleHalfBridge(dz, T_BRIDGE);
+            translate([X_BRIDGE, -yBridge, dz]) 
+                baffleHalfBridge(dz, T_BRIDGE);        
+            mirror([1, 0, 0]) translate([X_BRIDGE, -yBridge, dz]) 
+                baffleHalfBridge(dz, T_BRIDGE);
 
+            translate([X_BRIDGE, yBridge - dz*2, dz]) 
+                baffleHalfBridge(dz, T_BRIDGE);        
+            mirror([1, 0, 0]) translate([X_BRIDGE, yBridge - dz*2, dz]) 
+                baffleHalfBridge(dz, T_BRIDGE);
+        }
+        else {
+            translate([0, 0, dz]) {
+                if (bridge == 2)
+                    bridge2(d, dz);
+                else if (bridge == 3)
+                    bridge3(d, dz);
+            }
+        }
         oneBaffleBottonRail(d, dz);
         mirror([1,0,0]) oneBaffleBottonRail(d, dz);
     }
@@ -583,6 +617,7 @@ module baffleMCBattery( outer,          // outer diameter
                         extraBaffle=0,  // add this much to the front baffle
                         mcWide=0,       // set this for a wide top board
                         bridgeInFront=false,    // set true to contiue bridge. Useful for attaching to a cap.
+                        bridgeStyle = 1
                     )
 {
     for(i=[0:n-1]) {
@@ -593,16 +628,21 @@ module baffleMCBattery( outer,          // outer diameter
                 // to bring it in.
                 intersection() {
                     cylinder(h=dzButtress*2, d=dFirst);
-                    oneBaffle(outer, dzFirst, dExtra=dFirst - outer, mcWide=mcWide);
+                    oneBaffle(outer, dzFirst, 
+                            dExtra=dFirst - outer, 
+                            mcWide=mcWide, 
+                            bridge=bridgeStyle);
                 }
             }
             else {
-                oneBaffle(outer, dzButtress, bridge=bridgeInFront || (i < n-1), mcWide=mcWide);
+                oneBaffle(outer, dzButtress, 
+                    bridge=bridgeInFront || (i < n-1) ? bridgeStyle : 0, 
+                    mcWide=mcWide);
             }
     }
     if (extraBaffle) {
         translate([0, 0, (n*2 - 1) * dzButtress]) {
-            oneBaffle(outer, extraBaffle, bridge=false, mcWide=mcWide);
+            oneBaffle(outer, extraBaffle, bridge=0, mcWide=mcWide);
         }
     }
 }
@@ -717,18 +757,17 @@ module oledHolder(outer, t, dz, dzToPCB, dyPCB)
 
 INCHES_TO_MM        = 25.4;
 H_TEETH             = 4.0;
-H_ADVANCED_THREAD   = 12.6;                    
+H_ADVANCED_THREAD   = 13.8; // larger to make threading easier
 H_RING              = 3.0;
-H_HEATSINK          = 0.45 + 0.890 * INCHES_TO_MM;
-D_ADVANCED_LED      = 20.000;                   // hole where the light shines.
-D_HEATSINK          = 1.000 * INCHES_TO_MM;
+H_HEATSINK          = 0.5 + 0.890 * INCHES_TO_MM;
+D_ADVANCED_LED      = 20.000; // hole where the light shines.
+D_HEATSINK          = 25.6;
 
 
-module emitterTeeth()
+module emitterTeeth(delta=0)
 {
     N_ADVANCED_TEETH = 6;
-
-    TEETH_Y = 7;
+    TEETH_Y = 7 + delta;
 
     for(r=[0:5]) {
         rotate([0, 0, r*60])
@@ -741,21 +780,23 @@ function emitterZ() = H_ADVANCED_THREAD + H_HEATSINK + H_RING;
 
 module emitterHolder(d)
 {
-    translate([0, 0, H_ADVANCED_THREAD]) difference() {
+    translate([0, 0, H_ADVANCED_THREAD]) 
+    difference() {
         union() {
             // Top cap
-            translate([0, 0, H_HEATSINK]) {
-                difference() {
-                    cylinder(h=H_RING, d=d);
-                    cylinder(h=H_RING, d=D_ADVANCED_LED);
-                }
-            };
-        
+            translate([0, 0, H_HEATSINK])
+                cylinder(h=H_RING, d=d);        
             // LED
             cylinder(h=H_HEATSINK, d=d);
         }
-        cylinder(h=H_HEATSINK, d=D_HEATSINK);
-
+        BEPS = 1;   // offset back to clean up noise
+        translate([0, 0, -BEPS])
+        {
+        // Center light
+            cylinder(h=100, d=D_ADVANCED_LED);
+            // Heatsink
+            cylinder(h=H_HEATSINK + BEPS, d=D_HEATSINK);
+        }
         // Vents / decoration / volume reduction
         Z0 = 4;
         Z1 = 12;
@@ -787,7 +828,7 @@ module emitterBase(d)
     {
         difference() {
             tube(h=H_ADVANCED_THREAD, do=d, di=dynamicHeatSinkThread());
-            translate([0, 0, H_ADVANCED_THREAD - H_TEETH]) emitterTeeth();
+            translate([0, 0, H_ADVANCED_THREAD - H_TEETH]) emitterTeeth(0.1);
         }
     }
 }

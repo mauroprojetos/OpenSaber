@@ -96,7 +96,7 @@ Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
 Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
 Adafruit_ZeroDMA audioDMA;
 SPIStream spiStream(spiFlash);              // FIXME global generic resource
-I2SAudio audioPlayer(i2s, audioDMA, spiFlash, spiStream);
+I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 SFX sfx(&audioPlayer);
 ConstMemImage MemImage(spiFlash);
 
@@ -210,8 +210,9 @@ void setupSD()
 
     #ifdef SABER_SOUND_ON
     if (wavSource) {
+        audioPlayer.initStream(&spiStream, 0);
         audioPlayer.init();
-        audioPlayer.setVolume(50);
+        audioPlayer.setVolume(50, 0);
     }
     #endif
 }
@@ -273,6 +274,7 @@ void setup() {
         }
     #endif
     Log.p(__LINE__).eol();
+    Log.p("power: ").p(voltmeter.averagePower()).eol();
     blade.setVoltage(voltmeter.averagePower());
     Log.p(__LINE__).eol();
 

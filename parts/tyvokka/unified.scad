@@ -1,13 +1,18 @@
 use <../inset.scad>
 use <../commonUnified.scad>
+use <../shapes.scad>
 include <dim.scad>
 
-$fn = 60;
 EPS = 0.01;
 
-DRAW_AFT = false;
-DRAW_FORE = true;
+DRAW_AFT     = true;
+DRAW_FORE    = false;
 DRAW_EMITTER = false;
+
+FAST = false;
+BAFFLE_AFT  = FAST ? 1 : 3;
+BAFFLE_FORE = FAST ? 1 : 2;
+$fn = FAST ? 20 : 80;
 
 module flatBottom()
 {
@@ -22,13 +27,21 @@ if (DRAW_AFT) {
 
     translate([0, 0, M_BATTERY_BACK]) {
         dz = M_BATTERY_FRONT - M_BATTERY_BACK;
-        nBaffles = nBafflesNeeded(DZ_BAFFLE) + 1;   // padding.
-        dzAllBaffles = zLenOfBaffles(nBaffles, DZ_BAFFLE);
+        nBaffles = nBafflesNeeded(DZ_BAFFLE);
+        dzAllBafflesBeforePad = zLenOfBaffles(nBaffles, DZ_BAFFLE);
+        BAFFLE_PAD = 4.0;
+        dzAllBaffles = dzAllBafflesBeforePad + BAFFLE_PAD;
+
+        if (M_BATTERY_BACK + dzAllBaffles > M_BATTERY_FRONT) {
+            echo("Aft section too long.", M_BATTERY_BACK + dzAllBaffles, "past", M_BATTERY_FRONT);
+        }
 
         baffleMCBattery(
             D_INNER,
             nBaffles,
-            DZ_BAFFLE   
+            DZ_BAFFLE,
+            extraBaffle=BAFFLE_PAD,
+            bridgeStyle=BAFFLE_AFT   
         );
     }
     translate([0, 0, M_BATTERY_FRONT]) {
@@ -41,17 +54,14 @@ module dotstarCutout()
     N_DOTSTAR = 4;
     Z_DOTSTAR_LEN = dotstarStripZLen(N_DOTSTAR);
     DOTSTAR_STRIP_XZ = 12.8;
-    translate([R_INNER - 3.0, -DOTSTAR_STRIP_XZ/2, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
+    DY = 3.5;
+    
+    // Railing (so handy) and dotstar cutout.
+    translate([R_INNER - DY, -DOTSTAR_STRIP_XZ/2, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
         cube(size=[0.8, DOTSTAR_STRIP_XZ, Z_DOTSTAR_LEN]);
-    }
-    OFFSET = 2;
-    translate([R_INNER - 3.0, -DOTSTAR_STRIP_XZ/2 + OFFSET, M_CAPSULE_CENTER - Z_DOTSTAR_LEN/2]) {
-        hull() {
-            cube(size=[10, DOTSTAR_STRIP_XZ - OFFSET, Z_DOTSTAR_LEN + 4]);
-            // This is just to slant up the top of the holder for printing.
-            translate([3, DOTSTAR_STRIP_XZ - OFFSET + 3, 0])
-                cube(size=[1, 1, Z_DOTSTAR_LEN + 4]);
-        }
+        OFFSET = 2;
+        translate([0, OFFSET, 0])
+            xRoofCube([10, DOTSTAR_STRIP_XZ - OFFSET, Z_DOTSTAR_LEN+2]);
     }
 }
 
@@ -75,7 +85,9 @@ if (DRAW_FORE)
                     M_EMITTER - M_CAPSULE_BACK,
                     DZ_CAPSULE_NOM / 2,
                     DZ_PORT, DZ_SWITCH,
-                    D_CAPSULE, DZ_BAFFLE
+                    D_CAPSULE, DZ_BAFFLE,
+                    bridgeStyle = 3,
+                    bridgeStyleArray=[2, 2, 2, 2, 2, 3]
                 );    
             }
             translate([0, 0, M_EMITTER]) {
@@ -85,13 +97,17 @@ if (DRAW_FORE)
         translate([0, 0, M_BATTERY_FRONT]) {
             keyJoint(8, D_INNER + EPS*4, D_INNER - 4.0, 0.0, 0.0, true);
         }
-        dotstarCutout();
+        mirror([-1, 0, 0]) dotstarCutout();
         flatBottom();
+        
+        translate([0, 0, M_EMITTER])
+            for(r=[0:5])
+                rotate([0, 0, 60*r])
+                    capsule(-12, 12, 2);
     }
-
     //color("red") dotstarCutout();
-
 }
+
 
 if (DRAW_EMITTER) {
     translate([0, 0, M_EMITTER]) {

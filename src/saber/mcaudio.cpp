@@ -1,6 +1,6 @@
 #include <Arduino.h>    
 
-#define LOG_TIME
+// #define LOG_TIME
 
 // This audio system is set up for using I2S on
 // an Itsy-Bitsy M0. Relies on DMA and SPI memory
@@ -66,13 +66,12 @@ void I2SAudio::outerFill(int id)
         }
     }
 
-    if (audioBufferData[id].status != AUDBUF_EMPTY)
-        I2SAudio::tracker.timerErrors++;
-
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
     for(int i=0; i<NUM_CHANNELS; ++i) {
-        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), audio->looping[i] > 0, (i > 0));
+        bool add = i > 0;
+        bool looping = audio->looping[i];
+        int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), looping, add);
         if (rc != 0) {
             I2SAudio::tracker.timerErrors++;
         }
@@ -82,14 +81,9 @@ void I2SAudio::outerFill(int id)
 void I2SAudio::dmaCallback(Adafruit_ZeroDMA* dma)
 {
     const uint32_t start = micros();
-    audioBufferData[dmaPlaybackBuffer].status = AUDBUF_EMPTY;
     dmaPlaybackBuffer = (dmaPlaybackBuffer + 1) % NUM_AUDIO_BUFFERS;
     
     I2SAudio::tracker.dmaCalls++;
-    if (audioBufferData[dmaPlaybackBuffer].status != AUDBUF_READY) {
-        I2SAudio::tracker.dmaErrors++;
-    }
-    audioBufferData[dmaPlaybackBuffer].status = AUDBUF_DRAINING;
     int32_t* src = audioBufferData[dmaPlaybackBuffer].buffer;
 
     dma->changeDescriptor(
@@ -178,9 +172,6 @@ void I2SAudio::init()
     i2s.enableTx();
 
     I2SAudio::outerFill(0);     
-    Log.p("Buffer 0 status=").p(audioBufferData[0].status == AUDBUF_READY ? "ready" : "ERROR")
-       .p(" dmaPlaybackBuffer=").p(dmaPlaybackBuffer).eol();
-
     dmaPlaybackBuffer = 1;  // seed to the first, so the dma will switch back to 0.
     stat = audioDMA.startJob();
     Log.p("Audio init complete.").eol();
@@ -221,12 +212,18 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
     uint32_t baseAddr = 0;
     readAudioInfo(spiFlash, file, &header, &baseAddr);
 
-    //Log.p("Play [").p(fileIndex).p("]: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
+    Log.p("Play [").p(fileIndex)
+        .p("]: channel=").p(channel)
+        .p(" looping=").p(loop ? 1 : 0)
+        .p(" lenInBytes=").p(header.lenInBytes)
+        .p(" nSamples=").p(header.nSamples)
+        .p(" format=").p(header.format).eol();
 
     // Queue members need to be in the no-interupt lock since
     // it is read and modified by the timer callback. readFile()
     // above will acquire and release the lock on its own.
 
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     ChangeReq& cr = changeReq[channel];
     cr.addr = baseAddr;
@@ -245,7 +242,7 @@ bool I2SAudio::play(const char* filename, bool loop, int channel)
 {
     int index = MemImage.lookup(filename);
     if (index >= 0) {
-        play(index, loop, channel);
+        play(index, loop, clamp(channel, 0, NUM_CHANNELS-1));
     }
     return true;
 }
@@ -254,6 +251,7 @@ bool I2SAudio::play(const char* filename, bool loop, int channel)
 void I2SAudio::stop(int channel)
 {
     //Log.p("stop").eol();
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     ChangeReq& cr = changeReq[channel];
     cr.addr = 0;
@@ -268,6 +266,7 @@ void I2SAudio::stop(int channel)
 
 bool I2SAudio::isPlaying(int channel) const
 {
+    channel = clamp(channel, 0, NUM_CHANNELS-1);
     noInterrupts();
     bool isQueued = changeReq[channel].isQueued;
     bool hasSamples = expander[channel].pos() < expander[channel].samples();    
@@ -304,7 +303,6 @@ void I2SAudio::dumpStatus()
 {
     if (tracker.hasErrors())
         Log.p("Audio tracker ERROR.").eol();
-
     Log.p(" OuterFill calls:").p(tracker.timerCalls)
         .p(" queue:").p(tracker.timerQueued)
         .p(" errors:").p(tracker.timerErrors)
@@ -317,26 +315,20 @@ void I2SAudio::dumpStatus()
         .p(" errors:").p(tracker.fillErrors)
         .p(" crit errors:").p(tracker.fillCritErrors)
         .eol();
+
     tracker.reset();
 }
 
 
 int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add)
 {
-    if (status != AUDBUF_EMPTY) {
-        I2SAudio::tracker.fillErrors++;
-    }
-    status = AUDBUF_FILLING;
-
     uint32_t MILLION2 = 2 * 1024 * 1024;
     if (expander.samples() < expander.pos()) {
         I2SAudio::tracker.fillCritErrors++;
-        status = AUDBUF_READY;
         return AUDERROR_SAMPLES_POS_OUT_OF_RANGE;
     }
     if (expander.samples() > MILLION2 || expander.pos() > MILLION2) {
         I2SAudio::tracker.fillCritErrors++;
-        status = AUDBUF_READY;
         return AUDERROR_SAMPLES_POS_OUT_OF_RANGE;
     }
 
@@ -347,7 +339,7 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
                 expander.rewind();
             }
             uint32_t toRead = glMin(expander.samples() - expander.pos(), AUDIO_BUFFER_SAMPLES - totalRead);
-            expander.expand2(buffer + totalRead*2, toRead, volume, false);
+            expander.expand2(buffer + totalRead*2, toRead, volume, add);
             totalRead += toRead;
         }
         I2SAudio::tracker.fillSome++;
@@ -355,17 +347,18 @@ int AudioBufferData::fillBuffer(wav12::Expander& expander, int32_t volume, bool 
     else {
         uint32_t toRead = glMin(expander.samples() - expander.pos(), (uint32_t)AUDIO_BUFFER_SAMPLES);
         if (toRead) {
-            expander.expand2(buffer, toRead, volume, false);
+            expander.expand2(buffer, toRead, volume, add);
             I2SAudio::tracker.fillSome++;
         }
         else {
             I2SAudio::tracker.fillEmpty++;
         }
+        if (!add) {
         for(uint32_t i=toRead*2; i<STEREO_BUFFER_SAMPLES; ++i) {
             buffer[i] = 0;
         }
     }
-    status = AUDBUF_READY;
+    }
     return AUDERROR_NONE;
 }
 

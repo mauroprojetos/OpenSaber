@@ -13,7 +13,7 @@ MID_BRIDGE_DZ = 10;
 
 WOOD_DY = -8;
 POST_DY = 5;
-POWER_DY = 5;
+POWER_DY = 7.5;
 SWITCH_DY = 10.5;
 
 module insetCapsule(extends, dy, deltaD=0)
@@ -74,7 +74,9 @@ module insetHolder( diameter,
                     dzCenterPort, 
                     dzCenterSwitch, 
                     diameterCapsule,
-                    dzBaffle)
+                    dzBaffle,
+                    bridgeStyle=1,
+                    bridgeStyleArray=undef)
 {
     Z_MID = dzCenter;
     DZ_PORT = dzCenterPort;
@@ -92,10 +94,22 @@ module insetHolder( diameter,
             translate([0, 0, Z_MID])
                 attachPost(D_INNER);
 
-            // Switch holder. Fixme: needs side holders?
-            translate([0, 0, Z_MID + DZ_SWITCH])
-                simpleBridge(D_INNER, R_INNER - SWITCH_DY, 3, SWITCH_BRIDGE_DZ);
+            // Switch holder.
+            intersection() {
+                cylinder(h=300, d=D_INNER);
+                translate([0, 0, Z_MID + DZ_SWITCH]) {
+                    simpleBridge(D_INNER, R_INNER - SWITCH_DY, 3, SWITCH_BRIDGE_DZ, flatFill=true);
 
+                    X_SWITCH = 6.5; // FIXME
+                    Y_SWITCH = 3.0;
+                    
+                    translate([X_SWITCH/2, R_INNER - SWITCH_DY, -SWITCH_BRIDGE_DZ/2])
+                        cube(size=[50, Y_SWITCH, SWITCH_BRIDGE_DZ]);
+                    mirror([-1, 0, 0])
+                        translate([X_SWITCH/2, R_INNER - SWITCH_DY, -SWITCH_BRIDGE_DZ/2])
+                            cube(size=[50, Y_SWITCH, SWITCH_BRIDGE_DZ]);
+                }
+            }
             // Power holder.
             translate([0, 0, Z_MID + DZ_PORT]) {
                 simpleBridge(D_INNER, R_INNER - POWER_DY, 3, 14, 4);
@@ -103,22 +117,10 @@ module insetHolder( diameter,
         }
 
         // Power port
-        *translate([0, 0, Z_MID + DZ_PORT]) {
-            rotate([-90, 0, 0]) {
-                // Initially measured.
-                cylinder(h=50, d=8.0);
-                cylinder(h=R_INNER - POWER_DY - 1.5, d=11.5);
-            }
-        }
-        // Alternate holder for power port.
         translate([0, 0, Z_MID + DZ_PORT]) {
             rotate([-90, 0, 0]) {
-                cylinder(h=50, d=8.7);
-            }
-        }
-        translate([0, R_INNER - POWER_DY-3, Z_MID + DZ_PORT]) {
-            rotate([-90, 0, 0]) {
-                cylinder(h=50, d=11.4);
+                cylinder(h=50, d=8.0);
+                cylinder(h=R_INNER - POWER_DY - 1.5, d=11.5);
             }
         }
     }
@@ -133,7 +135,7 @@ module insetHolder( diameter,
                 translate([0, DY, 0])
                     zCapsule(DZ_PORT, DZ_SWITCH, rCapsule+2);
                 zCapsule(DZ_PORT, DZ_SWITCH, rCapsule);          // the actual wood
-                translate([0, DY, 0])
+                translate([0, DY - EPS*2, 0])
                     zCapsule(DZ_PORT, DZ_SWITCH, rCapsule-2);
 
                 stockX = diameterCapsule;
@@ -150,7 +152,8 @@ module insetHolder( diameter,
         union() {
             for(i=[0:nBaffle-1]) {
                 translate([0, 0, i*dzBaffle*2]) {
-                    insetBaffle(diameter, dzBaffle, true);
+                    style = (bridgeStyleArray && i < len(bridgeStyleArray)) ? bridgeStyleArray[i] : bridgeStyle;
+                    insetBaffle(diameter, dzBaffle, style);
                 }
             }
         }
@@ -169,8 +172,9 @@ module insetHolder( diameter,
                 cylinder(h=50, d=15.0);
     }
     // Cap the end.
-    translate([0, 0, dzSection - dzBaffle])
-        insetBaffle(diameter, dzBaffle, false);
+    translate([0, 0, dzSection - dzBaffle]) {
+        insetBaffle(diameter, dzBaffle, bridgeStyle);
+    }
 }
 
 insetHolder(32.2, 37.9, 

@@ -19,7 +19,7 @@ Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI
 Adafruit_ZeroDMA audioDMA;
 
 SPIStream spiStream(spiFlash);
-#ifdef MULTI_CHANNEL
+#if NUM_CHANNELS > 1
 static_assert(NUM_CHANNELS == 4, "Hardwired for 4 channels");
 SPIStream spiStream1(spiFlash);
 SPIStream spiStream2(spiFlash);
@@ -32,6 +32,8 @@ I2SAudio i2sAudio(i2s, audioDMA, spiFlash);
 Timer2 statusTimer(1000);
 Timer2 playingTimer(833);
 uint32_t lastTime = 0;
+int masterVolume = 50;
+int baseSound = 5;
 
 Random randPlus;
 enum Mode {
@@ -69,22 +71,18 @@ void setup()
     MemImage.begin();
     dumpImage(spiFlash);
 
-    int vVal = 113;
-    vpromPut(0, vVal);
-    vVal = 0;
-    vpromGet(0, vVal);
-    Log.p("VPROM test: ").p(vVal == 113 ? "success" : "ERROR").eol();
-
     i2sAudio.initStream(&spiStream);
-    #ifdef MULTI_CHANNEL
+    #if NUM_CHANNELS > 1
     static_assert(NUM_CHANNELS == 4, "Hardwired for 4 channels");
     i2sAudio.initStream(&spiStream1, 1);
     i2sAudio.initStream(&spiStream2, 2);
     i2sAudio.initStream(&spiStream3, 3);
     #endif
     i2sAudio.init();
+    Log.p("Audio initialized. nChannels=").p(NUM_CHANNELS).eol();
 
-    i2sAudio.setVolume(50, 0);
+    for(int i=0; i<NUM_CHANNELS; ++i)
+        i2sAudio.setVolume(masterVolume, i);
 
     Log.p("Free ram:").p(FreeRam()).eol();
 
@@ -108,7 +106,7 @@ void loop()
     i2sAudio.process();
     if (statusTimer.tick(t - lastTime)) {
         bool error = i2sAudio.tracker.hasErrors();
-        i2sAudio.dumpStatus();
+        //i2sAudio.dumpStatus();
         while (error) {}
     }
     #if 0
@@ -125,7 +123,7 @@ void loop()
 
     if (mode == Mode::TEST) {
         if(!i2sAudio.isPlaying(0)) 
-            i2sAudio.play(5, true, 0);
+            i2sAudio.play(baseSound, true, 0);
         if (startTime <= millis()) {
             startTime = millis() + randPlus.rand(3000);
             i2sAudio.play(randPlus.rand(5), false, 0);
@@ -133,42 +131,46 @@ void loop()
     }
     else if (mode == Mode::SWING)
     {
-        static const uint32_t DURATION = 1000;
-        static const uint32_t SHORT = 700;
+        static const uint32_t DURATION = 2000;
+        static const uint32_t SHORT = 1400;
+        static const uint32_t START = DURATION - SHORT;
 
         uint32_t deltaT = millis() - startTime;
+
         if (deltaT > DURATION) {
             mode = Mode::NORMAL;
-            i2sAudio.setVolume(256, 0);
+            //i2sAudio.stop(0);
+            i2sAudio.setVolume(masterVolume, 0);
+            #if NUM_CHANNELS > 1
             i2sAudio.setVolume(0, 1);
             i2sAudio.setVolume(0, 2);
+            #endif
         }
         else {
             // Hum channel 0
             {
                 FixedNorm fraction(deltaT, DURATION*2);
                 FixedNorm base = FixedNorm(1) - FixedNorm(3, 4) * iSin(fraction);
-                i2sAudio.setVolume(base.scale(256), 0);
+                //Log.p("vol=").p(base.scale(100)).eol();
+                i2sAudio.setVolume(base.scale(masterVolume), 0);
             }
+            #if NUM_CHANNELS > 1
 
             // Hum channel 1
             if (deltaT >=0 && deltaT < SHORT) {
                 FixedNorm fraction(deltaT, SHORT*2);
                 FixedNorm low = iSin(fraction);
-                i2sAudio.setVolume(low.scale(256), 1);
-            }
-            else {
-                i2sAudio.setVolume(0, 1);
+                if (low < FixedNorm(0)) low = FixedNorm(0);
+                i2sAudio.setVolume(low.scale(masterVolume), 1);
             }
             // Hum channel 2
-            if (deltaT >=DURATION - SHORT && deltaT < DURATION) {
-                FixedNorm fraction(deltaT - (DURATION - SHORT), SHORT*2);
+            if (deltaT >= START && deltaT < DURATION) {
+                FixedNorm fraction(deltaT - START, SHORT*2);
                 FixedNorm high = iSin(fraction);
-                i2sAudio.setVolume(high.scale(256), 2);
+                if (high < FixedNorm(0)) high = FixedNorm(0);
+                i2sAudio.setVolume(high.scale(masterVolume), 2);
             }
-            else {
-                i2sAudio.setVolume(0, 2);
-            }
+            #endif
         }
     }
 
@@ -176,29 +178,14 @@ void loop()
         int c = Serial.read();
         if (c == '\n') {
             Log.pt(cmd).eol();
-            if (cmd.size() == 2 && cmd[0] == 'p') {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cToInt(cmd[1]), false, 0);
-            }
-            else if (cmd.size() == 2 && cmd[0] == 'l') {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cToInt(cmd[1]), true, 0);
-            }
-            else if (cmd.size() == 3 && cmd[0] == 'p') {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cToInt(cmd[1]), false, cToInt(cmd[2], 0, 3));
-            }
-            else if (cmd.size() == 3 && cmd[0] == 'l') {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cToInt(cmd[1]), true, cToInt(cmd[2], 0, 3));
-            }
-            else if (cmd[0] == 'p' && cmd.size() > 2) {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cmd.c_str() + 2, false, 0);
-            }
-            else if (cmd[0] == 'l' && cmd.size() > 2) {
-                i2sAudio.setVolume(256, 0);
-                i2sAudio.play(cmd.c_str() + 2, true, 0);
+            if (cmd[0] == 'p' || cmd[0] == 'l') {
+                bool looping = cmd[0] == 'l' ? true : false;
+                int channel = 0;
+                if (cmd.size() == 3) {
+                    channel = cToInt(cmd[2]);
+                }
+                i2sAudio.setVolume(masterVolume, channel);
+                i2sAudio.play(cToInt(cmd[1]), looping, channel);
             }
             else if (cmd[0] == 'q') {
                 for(int i=1; i<cmd.size(); ++i)
@@ -207,27 +194,37 @@ void loop()
             else if (cmd == "s") {
                 i2sAudio.stop(0);
             }
-            else if (cmd == "t") {
-                mode = Mode::TEST;
-                startTime = 0;   // start w/ evil double play
+            else if (cmd[0] == 't') {
+                if (mode == Mode::TEST) {
+                    mode = Mode::NORMAL;
+                    for(int i=0; i<NUM_CHANNELS; ++i) 
+                        i2sAudio.stop(i);
+                }
+                else {
+                    if (cmd.size() == 2) {
+                        baseSound = cToInt(cmd[1]);
+                    }
+                    mode = Mode::TEST;
+                    startTime = 0;   // start w/ evil double play
+                }
             }
             else if (cmd[0] == 'v') {
                 int v = atoi(cmd.c_str() + 1);
-                i2sAudio.setVolume(v, 0);
+                masterVolume = v;
+                i2sAudio.setVolume(masterVolume, 0);
             }
             else if (cmd[0] == 'e') {
-                int base = cToInt(cmd[1]);
-                int low  = cToInt(cmd[2]);
-                int high = cToInt(cmd[3]);
+                int low  = cToInt(cmd[1]);
+                int high = cToInt(cmd[2]);
 
-                i2sAudio.setVolume(256, 0);
+                #if NUM_CHANNELS > 1
                 i2sAudio.setVolume(0, 1);
                 i2sAudio.setVolume(0, 2);
-             
+                #endif
+
                 startTime = millis();
                 mode = Mode::SWING;
              
-                i2sAudio.play(base, true, 0);
                 i2sAudio.play(low, true, 1);
                 i2sAudio.play(high, true, 2);
             }

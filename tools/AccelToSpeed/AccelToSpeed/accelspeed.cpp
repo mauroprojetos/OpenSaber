@@ -2,52 +2,87 @@
 #include <assert.h>
 #include <math.h>
 
+static const float G_LESS = 1.05f;
+static const float G_MORE = 1.2f;
+static const float DSPEED_EASING = 0.6f;
+static const float MIX_EASING = 0.1f; // 0.15f;
+static const float MOTION_THRESHOLD = 2.0f;
+static const float MOTION_FULL_VOLUME = 6.0;
 
 AccelSpeed::AccelSpeed()
 {
 }
 
-void AccelSpeed::push(float ax, float ay, float az, uint32_t microDT)
+void AccelSpeed::calcMix()
 {
-    static const float MICRO_TO_S = 1.f / 1000000.0f;
+    float mix = 0;
+    if (m_maxDSpeed == 0.f) {
+        mix = 0;
+    }
+    else if (m_minDSpeed < 0 && m_dSpeed > m_minDSpeed) {
+        mix = 1.0f;
+    }
+    else {
+        // dSpeed / maxDSpeed is roughly 1 to -1
+        float f = 0.5f - 0.5f * (m_dSpeed / m_maxDSpeed);
+        mix = Clamp(f, 0.0f, 1.0f);
+    }
+    m_mix = mix * MIX_EASING + m_mix1 * (1.0f - MIX_EASING);
+    m_mix1 = m_mix;
+}
+
+float AccelSpeed::swingVolume() const
+{
+    if (m_speed < MOTION_THRESHOLD) return 0.f;
+    if (m_speed > MOTION_FULL_VOLUME) return 1.0f;
+    return (m_speed - MOTION_THRESHOLD) / (MOTION_FULL_VOLUME - MOTION_THRESHOLD);
+}
+
+void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
+{
+    static const float MICRO_TO_S = float(1.0 / (1000.0 * 1000.0));
     static const float G = 9.81f;    // m/s2
 
     const float dts = MICRO_TO_S * float(microDT);
-    // Surprisingly low thresholf for the damping to kick in.
-    const float EDGE = MIX_LOWER + 0.25f * (MIX_CAP - MIX_LOWER);
 
     // V(m/s) = V(m/s) + a(m/s2) * seconds
-    vx = vx + ax * G * dts;
-    vy = vy + ay * G * dts;
-    vz = vz + az * G * dts;
+    vx = vx + ax_g * dts * G;
+    vy = vy + ay_g * dts * G;
+    vz = vz + az_g * dts * G;
 
     m_speed = (float)sqrt(vx*vx + vy * vy + vz * vz);
-    if (m_speed > 0.5f) {
-        // Once the speed jumps "enough", increase
-        // damping.
-        upEdge = false;
-    }
 
-    if (m_speed <= MIX_LOWER) {
-        m_mix = 0;
-        upEdge = true;
+    // Use const time as an approximation.
+    float dS = (m_speed - m_speed1) / dts;
+    m_dSpeed = m_dSpeed * DSPEED_EASING + dS * (1.0f - DSPEED_EASING);
+
+    m_speed1 = m_speed;
+
+    if (m_maxDSpeed != 0.0f || m_speed > MOTION_THRESHOLD) {
+        m_maxDSpeed = Max(m_dSpeed, m_maxDSpeed);
+        m_minDSpeed = Min(m_dSpeed, m_minDSpeed);
     }
-    else if (m_speed >= MIX_CAP) {
-        m_mix = 1;
-    }
-    else {
-        m_mix = (m_speed - MIX_LOWER) / (MIX_CAP - MIX_LOWER);
-    }
+    calcMix();
+
+    float g2 = ax_g * ax_g + ay_g * ay_g + az_g * az_g;
+    bool more = (g2 > 0.5) && (g2 < 1.5);
 
     // Oppose velocity with acceleration equal to G
     if (m_speed != 0) {
-        const float F = upEdge ? F_UP : F_DOWN;
-        float gx = -G * F * dts * vx / m_speed;
-        float gy = -G * F * dts * vy / m_speed;
-        float gz = -G * F * dts * vz / m_speed;
-        
-        vx += gx;
-        vy += gy;
-        vz += gz;
+        float gDrag = more ? G_MORE : G_LESS;
+        float speedDrag = gDrag * G * dts;
+
+        if (m_speed <= speedDrag) {
+            vx = vy = vz = 0;
+            m_maxDSpeed = 0;
+            m_minDSpeed = 0;
+            m_mix = 0;
+            m_mix1 = 0;
+        }
+        else {
+            vx += -speedDrag * (vx / m_speed);
+            vy += -speedDrag * (vy / m_speed);
+            vz += -speedDrag * (vz / m_speed);
+        }
     }
 }
