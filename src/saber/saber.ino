@@ -55,7 +55,8 @@
 
 #include "accelerometer.h"
 #include "voltmeter.h"
-#include "sfx.h"
+#include "sfxEvent.h"
+#include "sfxSmooth.h"
 #include "saberdb.h"
 #include "cmdparser.h"
 #include "blade.h"
@@ -89,15 +90,23 @@ uint32_t lastLoopTime   = 0;
 */
 #if SABER_SOUND_ON == SABER_SOUND_SD
 AudioPlayer audioPlayer;
-SFX sfx(&audioPlayer);
-
+#   ifdef SABER_SMOOTH_SWING
+    SFXSmooth sfx(&audioPlayer);
+#   else
+    SFXEvent sfx(&audioPlayer);
+#   endif
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
 Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
 Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
 Adafruit_ZeroDMA audioDMA;
 SPIStream spiStream(spiFlash);              // FIXME global generic resource
 I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
-SFX sfx(&audioPlayer);
+#   ifdef SABER_SMOOTH_SWING
+    SFXSmooth sfx(&audioPlayer);
+#   else
+    SFXEvent sfx(&audioPlayer);
+#   endif
+
 ConstMemImage MemImage(spiFlash);
 
 #else

@@ -7,7 +7,7 @@
 #include "Grinliz_Util.h"
 
 // 1 or 4
-#define NUM_CHANNELS 1
+#define NUM_AUDIO_CHANNELS 1
 
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384
@@ -68,7 +68,7 @@ public:
 
     virtual void init();
     // Initialize the streams before the init() call.
-    void initStream(wav12::IStream* stream, int channel=0) { iStream[clamp(channel, 0, NUM_CHANNELS-1)] = stream;}
+    void initStream(wav12::IStream* stream, int channel=0) { iStream[clamp(channel, 0, NUM_AUDIO_CHANNELS-1)] = stream;}
 
     bool isInitialized() const { return _instance != 0; }
 
@@ -83,8 +83,8 @@ public:
     void dumpStatus();
 
     // Volume 256 is "full" - can boost or cut from there.
-    virtual void setVolume(int v, int channel) { volume256[clamp(channel, 0, NUM_CHANNELS-1)] = v; }
-    virtual int volume(int channel) const { return volume256[clamp(channel, 0, NUM_CHANNELS-1)]; }
+    virtual void setVolume(int v, int channel) { volume256[clamp(channel, 0, NUM_AUDIO_CHANNELS-1)] = v; }
+    virtual int volume(int channel) const { return volume256[clamp(channel, 0, NUM_AUDIO_CHANNELS-1)]; }
 
     void testReadRate(int index);
 
@@ -110,7 +110,7 @@ private:
     };
 
     int32_t expandVolume(int channel) const { 
-        channel = clamp(channel, 0, NUM_CHANNELS-1);
+        channel = clamp(channel, 0, NUM_AUDIO_CHANNELS-1);
         return this->volume(channel) * 256; 
     }
 
@@ -123,18 +123,18 @@ private:
     static int32_t audioBuffer1[STEREO_BUFFER_SAMPLES];
 
     // Access from interupts disabled.
-    static ChangeReq changeReq[NUM_CHANNELS];
+    static ChangeReq changeReq[NUM_AUDIO_CHANNELS];
     // end interupt section
 
     Adafruit_ZeroI2S&   i2s;
     Adafruit_ZeroDMA&   audioDMA;  
     Adafruit_SPIFlash&  spiFlash;
-    wav12::IStream*     iStream[NUM_CHANNELS];
+    wav12::IStream*     iStream[NUM_AUDIO_CHANNELS];
     uint32_t            lastLogTime = 0;
 
     // these are access in interupts. Assuming atomic read on M0 (?) seems okay.
-    int volume256[NUM_CHANNELS];    
-    int looping[NUM_CHANNELS];      // 0 or 1
+    int volume256[NUM_AUDIO_CHANNELS];    
+    int looping[NUM_AUDIO_CHANNELS];      // 0 or 1
 };
 
 
