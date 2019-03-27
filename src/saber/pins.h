@@ -66,8 +66,8 @@ SOFTWARE.
 #define LED_TYPE_WWG				3   // white-white-green
 #define LED_TYPE_GGC				4	  // green-green-cyan
 
-#define SABER_SOUND_SD 					1	// external memory card
-#define SABER_SOUND_FLASH 			2	// M0 memory
+#define SABER_SOUND_SD 					1		// External memory card. File is expected to be FAT, 44KHz WAV
+#define SABER_SOUND_FLASH 			2		// M0 memory. Files are organized in the wav12ly codec.
 
 #define SABER_DISPLAY_128_32					1
 #define SABER_DISPLAY_7_5_DEPRECATED 	2	// NON shifted. So many wires. So many.
@@ -677,6 +677,7 @@ static const int32_t LOW_VOLTAGE 		= 3400;		// 3500 gets sketchy. By 3.4 we're w
 	#define SABER_UI_IDLE_MEDITATION
 
 	#define SABER_SMOOTH_SWING
+	#define NUM_AUDIO_CHANNELS		4
 	#define SABER_SOUND_DEF SABER_SOUND_DEF_BESPIN_ROGUE
 
 	static const int32_t UVOLT_MULT = 5019;	

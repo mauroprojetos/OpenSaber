@@ -22,14 +22,14 @@
 
 // Arduino Libraries
 #ifdef CORE_TEENSY
-#include <EEPROM.h>
-#include <SerialFlash.h>
-#include <Audio.h>
+#   include <EEPROM.h>
+#   include <SerialFlash.h>
+#   include <Audio.h>
 #else 
-#include <Adafruit_ZeroI2S.h>
-#include <Adafruit_ZeroDMA.h>
-#include <Adafruit_SPIFlash.h>
-#include "mcmemimage.h"
+#   include <Adafruit_ZeroI2S.h>
+#   include <Adafruit_ZeroDMA.h>
+#   include <Adafruit_SPIFlash.h>
+#   include "mcmemimage.h"
 #endif
 
 #include <Wire.h>
@@ -67,9 +67,12 @@
 #include "ShiftedSevenSeg.h"
 
 #if SABER_SOUND_ON == SABER_SOUND_SD
-#include "AudioPlayer.h"
+#   include "AudioPlayer.h"
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
-#include "mcaudio.h"
+#   include "mcaudio.h"
+#endif
+#ifdef SABER_SMOOTH_SWING
+#   include "accelspeed.h"
 #endif
 
 using namespace osbr;
@@ -83,6 +86,7 @@ bool     flashOnClash   = false;
 float    maxGForce2     = 0.0f;
 uint32_t lastMotionTime = 0;    
 uint32_t lastLoopTime   = 0;
+uint32_t lastLoopTimeMicro = 0;
 
 /* First up; initialize the audio system and all its 
    resources. Also need to disable the amp to avoid
@@ -92,6 +96,7 @@ uint32_t lastLoopTime   = 0;
 AudioPlayer audioPlayer;
 #   ifdef SABER_SMOOTH_SWING
     SFXSmooth sfx(&audioPlayer);
+    AccelSpeed accelSpeed;
 #   else
     SFXEvent sfx(&audioPlayer);
 #   endif
@@ -103,6 +108,7 @@ SPIStream spiStream(spiFlash);              // FIXME global generic resource
 I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 #   ifdef SABER_SMOOTH_SWING
     SFXSmooth sfx(&audioPlayer);
+    AccelSpeed accelSpeed;
 #   else
     SFXEvent sfx(&audioPlayer);
 #   endif
@@ -159,12 +165,6 @@ ShiftedDotMatrix dotMatrix;
 ShiftedSevenSegment shifted7;
 Digit4UI digit4UI;
 #define SHIFTED_OUTPUT
-#endif
-
-#ifdef SABER_COMRF24
-RF24        rf24(PIN_SPI_CE, PIN_SPI_CS);
-ComRF24     comRF24(&rf24);
-Timer2      pingPongTimer(PING_PONG_INTERVAL);
 #endif
 
 CMDParser   cmdParser(&saberDB);
@@ -332,23 +332,6 @@ void setup() {
         #endif
     #endif
 
-    #ifdef SABER_COMRF24 
-        #if SABER_SUB_MODEL == SABER_SUB_MODEL_LUNA
-            const int role = 0;
-        #elif SABER_SUB_MODEL == SABER_SUB_MODEL_CELESTIA
-            const int role = 1;
-        #else
-            #error Role not defined.
-        #endif
-        if(comRF24.begin(role)) {
-            Log.p("RF24 initialized. Role=").p(comRF24.role()).eol();
-        }
-        else {
-            Log.p("RF24 error.").eol();
-        }
-
-    #endif
-
     syncToDB();
     ledA.set(true); // "power on" light
 
@@ -464,13 +447,6 @@ void buttonAHoldHandler(const Button& button)
         if (uiMode.mode() == UIMode::NORMAL) {
             if (button.nHolds() == 1) {
                 igniteBlade();
-                int pal = saberDB.paletteIndex();
-                (void) pal;
-                #ifdef SABER_COMRF24
-                char buf[] = "ignite0";
-                buf[6] = '0' + pal;
-                comRF24.send(buf);
-                #endif
             }
         }
         else 
@@ -492,9 +468,6 @@ void buttonAHoldHandler(const Button& button)
     else if (bladeState.state() != BLADE_RETRACT) {
         if (button.nHolds() == 1) {
             retractBlade();
-            #ifdef SABER_COMRF24
-            comRF24.send("retract");
-            #endif
         }
     }
 }
@@ -514,55 +487,18 @@ void processSerial() {
 }
 
 
-#ifdef SABER_COMRF24
-void processCom(uint32_t delta)
+void processAccel(uint32_t msec, uint32_t deltaMicro)
 {
-    CStr<16> comStr;
-    comRF24.process(&comStr);
-    if (!comStr.empty()) {
-        if (comStr.beginsWith("ignite")) {
-            char c = comStr[6];
-            if (c >= '0' && c <= '7') {
-                saberDB.setPalette(c - '0');
-            }
-            igniteBlade();
-        }
-        else if (comStr == "retract") {
-            retractBlade();
-        }
-        else if (comStr == "ping") {
-            // Low priority event. Only do the breathing
-            // if the LED isn't being used to display something else.
-            if (!ledA.blinking() && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-                ledA.blink(1, BREATH_TIME, 0, LEDManager::BLINK_BREATH);
-            }
-            comRF24.send("pong");
-        }
-        else if (comStr == "pong") {
-            // Low priority event. Only do the breathing
-            // if the LED isn't being used to display something else.
-            if (!ledA.blinking() && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-                ledA.blink(1, BREATH_TIME, 0, LEDManager::BLINK_BREATH);
-            }
-        }
-    }
-    if (comRF24.role() == 1 && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-        if (pingPongTimer.tick(delta)) {
-            comRF24.send("ping");
-        }
-    }
-}
+    float g2Normal = 1.0f;
+    float g2 = 1.0f;
+    float ax=0, ay=0, az=0;
+    accel.read(&ax, &ay, &az, &g2, &g2Normal);
+
+#ifdef SABER_SMOOTH_SWING
+    accelSpeed.push(ax, ay, az, deltaMicro);
 #endif
 
-
-void processAccel(uint32_t msec)
-{
     if (bladeState.state() == BLADE_ON) {
-        float g2Normal = 1.0f;
-        float g2 = 1.0f;
-        float ax=0, ay=0, az=0;
-        accel.read(&ax, &ay, &az, &g2, &g2Normal);
-
         maxGForce2 = max(maxGForce2, g2);
         float motion = saberDB.motion();
         float impact = saberDB.impact();
@@ -601,25 +537,26 @@ void processAccel(uint32_t msec)
 }
 
 void loop() {
-    // Doesn't seem to get called on M0 / ItsyBitsy. Not sure why.
+    // processSerial() doesn't seem to get called on M0 / ItsyBitsy. 
+    // Not sure why.
     // processSerial() is intended to be "out of loop". Call it
     // first in the loop to try to preserve current behavior.
     processSerial();
 
     const uint32_t msec = millis();
+    const uint32_t micro = micros();
     uint32_t delta = msec - lastLoopTime;
+    uint32_t deltaMicro = micro - lastLoopTimeMicro;
     lastLoopTime = msec;
+    lastLoopTimeMicro = micro;
 
     tester.process();
 
     buttonA.process();
     ledA.process();
-    #ifdef SABER_COMRF24
-    processCom(delta);
-    #endif
-    processAccel(msec);
+    processAccel(msec, deltaMicro);
 
-    bladeState.process(&blade, saberDB, millis());
+    bladeState.process(&blade, saberDB, msec);
     sfx.process();
 
     if (vbatTimer.tick(delta)) {

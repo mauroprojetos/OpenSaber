@@ -1,13 +1,16 @@
 #ifndef MC_AUDIO_DEFINED
 #define MC_AUDIO_DEFINED
 
+#include "pins.h"
 #include <stdint.h>
 #include "compress.h"
 #include "iaudio.h"
 #include "Grinliz_Util.h"
 
 // 1 or 4
-#define NUM_AUDIO_CHANNELS 1
+#ifndef NUM_AUDIO_CHANNELS
+#   define NUM_AUDIO_CHANNELS 1
+#endif
 
 #define AUDIO_FREQ 22050
 #define AUDIO_BUFFER_SAMPLES 384
