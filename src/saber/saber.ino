@@ -78,8 +78,6 @@
 using namespace osbr;
 
 static const uint32_t INDICATOR_CYCLE         = 1000;
-static const uint32_t PING_PONG_INTERVAL      = 2400;
-static const uint32_t BREATH_TIME             = 1200;
 
 uint32_t reflashTime    = 0;
 bool     flashOnClash   = false;
@@ -90,33 +88,37 @@ uint32_t lastLoopTimeMicro = 0;
 
 /* First up; initialize the audio system and all its 
    resources. Also need to disable the amp to avoid
-   clicking.
+   clicking. (clicking isn't a problem with the i2s amp)
 */
 #if SABER_SOUND_ON == SABER_SOUND_SD
-AudioPlayer audioPlayer;
+    AudioPlayer audioPlayer;
 #   ifdef SABER_SMOOTH_SWING
-    SFXSmooth sfx(&audioPlayer);
-    AccelSpeed accelSpeed;
+        SFXSmooth sfx(&audioPlayer);
+        AccelSpeed accelSpeed;
 #   else
-    SFXEvent sfx(&audioPlayer);
+        SFXEvent sfx(&audioPlayer);
 #   endif
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
-Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
-Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
-Adafruit_ZeroDMA audioDMA;
-SPIStream spiStream(spiFlash);              // FIXME global generic resource
-I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
-#   ifdef SABER_SMOOTH_SWING
-    SFXSmooth sfx(&audioPlayer);
-    AccelSpeed accelSpeed;
-#   else
-    SFXEvent sfx(&audioPlayer);
+    Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
+    Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
+    Adafruit_ZeroDMA audioDMA;
+    SPIStream spiStream(spiFlash);
+#   if NUM_AUDIO_CHANNELS == 4
+        SPIStream spiStream1(spiFlash);
+        SPIStream spiStream2(spiFlash);
+        SPIStream spiStream3(spiFlash);
 #   endif
+    I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 
-ConstMemImage MemImage(spiFlash);
-
+#   ifdef SABER_SMOOTH_SWING
+        SFXSmooth sfx(&audioPlayer);
+        AccelSpeed accelSpeed;
+#   else
+        SFXEvent sfx(&audioPlayer);
+#   endif
+    ConstMemImage MemImage(spiFlash);
 #else
-SFX sfx(0);
+    SFX sfx(0);
 #endif
 
 BladeState  bladeState;
@@ -143,36 +145,32 @@ Voltmeter   voltmeter;
 #endif
 
 Accelerometer accel;
-
 Timer2 displayTimer(100);
 
 #if SABER_DISPLAY == SABER_DISPLAY_128_32
-static const int OLED_WIDTH = 128;
-static const int OLED_HEIGHT = 32;
-uint8_t oledBuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
+    static const int OLED_WIDTH = 128;
+    static const int OLED_HEIGHT = 32;
+    uint8_t oledBuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
 
-OLED_SSD1306 display(PIN_OLED_DC, PIN_OLED_RESET, PIN_OLED_CS);
-Sketcher    sketcher;
-Renderer    renderer;
+    OLED_SSD1306 display(PIN_OLED_DC, PIN_OLED_RESET, PIN_OLED_CS);
+    Sketcher    sketcher;
+    Renderer    renderer;
 #elif SABER_DISPLAY == SABER_DISPLAY_7_5_DEPRECATED
-Pixel_7_5_UI display75;
-PixelMatrix pixelMatrix;
+    Pixel_7_5_UI display75;
+    PixelMatrix pixelMatrix;
 #elif SABER_DISPLAY == SABER_DISPLAY_7_5
-Pixel_7_5_UI display75;
-ShiftedDotMatrix dotMatrix;
-#define SHIFTED_OUTPUT
+    Pixel_7_5_UI display75;
+    ShiftedDotMatrix dotMatrix;
+#   define SHIFTED_OUTPUT
 #elif SABER_DISPLAY == SABER_DISPLAY_SEGMENT
-ShiftedSevenSegment shifted7;
-Digit4UI digit4UI;
-#define SHIFTED_OUTPUT
+    ShiftedSevenSegment shifted7;
+    Digit4UI digit4UI;
+#   define SHIFTED_OUTPUT
 #endif
 
 CMDParser   cmdParser(&saberDB);
 Blade       blade;
 Timer2      vbatTimer(AveragePower::SAMPLE_INTERVAL);
-#ifdef LOG_AVE_POWER
-Timer2      vbatPrintTimer(500);
-#endif
 Timer2      gforceDataTimer(110);
 
 Tester      tester;
@@ -220,6 +218,11 @@ void setupSD()
     #ifdef SABER_SOUND_ON
     if (wavSource) {
         audioPlayer.initStream(&spiStream, 0);
+        #if NUM_AUDIO_CHANNELS == 4
+            audioPlayer.initStream(&spiStream1, 1);
+            audioPlayer.initStream(&spiStream2, 2);
+            audioPlayer.initStream(&spiStream3, 3);
+        #endif
         audioPlayer.init();
         audioPlayer.setVolume(50, 0);
     }
@@ -244,7 +247,7 @@ void setup() {
         digitalWrite(PIN_LATCH, HIGH);
     #endif
 
-    Serial.begin(19200);  // still need to turn it on in case a command line is connected.
+    Serial.begin(19200);  // Still need to turn it on in case USB is connected later to configure or debug.
     #if SERIAL_DEBUG == 1
     {
         int nTries = 0;
@@ -565,12 +568,6 @@ void loop() {
         uiRenderData.mVolts = voltmeter.averagePower();
     }
     
-    #ifdef LOG_AVE_POWER
-    if (vbatPrintTimer.tick(delta)) {
-        Log.p(" ave power=").p(voltmeter.averagePower()).eol();
-    }
-    #endif    
-
     if (gforceDataTimer.tick(delta)) {
         #if SABER_DISPLAY == SABER_DISPLAY_128_32
             maxGForce2 = constrain(maxGForce2, 0.1, 16);
