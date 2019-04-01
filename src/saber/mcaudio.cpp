@@ -32,7 +32,7 @@ int32_t I2SAudio::audioBuffer0[STEREO_BUFFER_SAMPLES]; // stereo buffers. throwi
 int32_t I2SAudio::audioBuffer1[STEREO_BUFFER_SAMPLES];
 
 // Could be a static:
-wav12::ExpanderV expander[NUM_CHANNELS];
+wav12::ExpanderV expander[NUM_AUDIO_CHANNELS];
 DmacDescriptor *dmacDescriptor = 0;
 
 I2STracker I2SAudio::tracker;
@@ -66,7 +66,7 @@ void I2SAudio::outerFill(int id)
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
     ASSERT(audio);
     
-    for (int i = 0; i < NUM_CHANNELS; ++i)
+    for (int i = 0; i < NUM_AUDIO_CHANNELS; ++i)
     {
         bool add = i > 0;
         bool looping = audio->looping[i];
