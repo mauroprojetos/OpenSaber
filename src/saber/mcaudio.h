@@ -31,7 +31,7 @@ struct AudioBufferData {
     uint32_t dataAvailable = 0;
     int32_t* buffer = 0;
     
-    int fillBuffer(wav12::Expander& expander, int32_t volume, bool loop, bool add);
+    int fillBuffer(wav12::ExpanderV& expander, int32_t volume, bool loop, bool add);
 
     void reset() { dataAvailable = 0; }
 };
