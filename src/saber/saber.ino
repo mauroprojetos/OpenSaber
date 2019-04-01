@@ -22,14 +22,14 @@
 
 // Arduino Libraries
 #ifdef CORE_TEENSY
-#include <EEPROM.h>
-#include <SerialFlash.h>
-#include <Audio.h>
+#   include <EEPROM.h>
+#   include <SerialFlash.h>
+#   include <Audio.h>
 #else 
-#include <Adafruit_ZeroI2S.h>
-#include <Adafruit_ZeroDMA.h>
-#include <Adafruit_SPIFlash.h>
-#include "mcmemimage.h"
+#   include <Adafruit_ZeroI2S.h>
+#   include <Adafruit_ZeroDMA.h>
+#   include <Adafruit_SPIFlash.h>
+#   include "mcmemimage.h"
 #endif
 
 #include <Wire.h>
@@ -55,7 +55,8 @@
 
 #include "accelerometer.h"
 #include "voltmeter.h"
-#include "sfx.h"
+#include "sfxEvent.h"
+#include "sfxSmooth.h"
 #include "saberdb.h"
 #include "cmdparser.h"
 #include "blade.h"
@@ -66,42 +67,58 @@
 #include "ShiftedSevenSeg.h"
 
 #if SABER_SOUND_ON == SABER_SOUND_SD
-#include "AudioPlayer.h"
+#   include "AudioPlayer.h"
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
-#include "mcaudio.h"
+#   include "mcaudio.h"
+#endif
+#ifdef SABER_SMOOTH_SWING
+#   include "accelspeed.h"
 #endif
 
 using namespace osbr;
 
 static const uint32_t INDICATOR_CYCLE         = 1000;
-static const uint32_t PING_PONG_INTERVAL      = 2400;
-static const uint32_t BREATH_TIME             = 1200;
 
 uint32_t reflashTime    = 0;
 bool     flashOnClash   = false;
 float    maxGForce2     = 0.0f;
 uint32_t lastMotionTime = 0;    
 uint32_t lastLoopTime   = 0;
+uint32_t lastLoopTimeMicro = 0;
 
 /* First up; initialize the audio system and all its 
    resources. Also need to disable the amp to avoid
-   clicking.
+   clicking. (clicking isn't a problem with the i2s amp)
 */
 #if SABER_SOUND_ON == SABER_SOUND_SD
-AudioPlayer audioPlayer;
-SFX sfx(&audioPlayer);
-
+    AudioPlayer audioPlayer;
+#   ifdef SABER_SMOOTH_SWING
+        SFXSmooth sfx(&audioPlayer);
+        AccelSpeed accelSpeed;
+#   else
+        SFXEvent sfx(&audioPlayer);
+#   endif
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
-Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
-Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
-Adafruit_ZeroDMA audioDMA;
-SPIStream spiStream(spiFlash);              // FIXME global generic resource
-I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
-SFX sfx(&audioPlayer);
-ConstMemImage MemImage(spiFlash);
+    Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
+    Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
+    Adafruit_ZeroDMA audioDMA;
+    SPIStream spiStream(spiFlash);
+#   if NUM_AUDIO_CHANNELS == 4
+        SPIStream spiStream1(spiFlash);
+        SPIStream spiStream2(spiFlash);
+        SPIStream spiStream3(spiFlash);
+#   endif
+    I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 
+#   ifdef SABER_SMOOTH_SWING
+        SFXSmooth sfx(&audioPlayer);
+        AccelSpeed accelSpeed;
+#   else
+        SFXEvent sfx(&audioPlayer);
+#   endif
+    ConstMemImage MemImage(spiFlash);
 #else
-SFX sfx(0);
+    SFX sfx(0);
 #endif
 
 BladeState  bladeState;
@@ -128,42 +145,32 @@ Voltmeter   voltmeter;
 #endif
 
 Accelerometer accel;
-
 Timer2 displayTimer(100);
 
 #if SABER_DISPLAY == SABER_DISPLAY_128_32
-static const int OLED_WIDTH = 128;
-static const int OLED_HEIGHT = 32;
-uint8_t oledBuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
+    static const int OLED_WIDTH = 128;
+    static const int OLED_HEIGHT = 32;
+    uint8_t oledBuffer[OLED_WIDTH * OLED_HEIGHT / 8] = {0};
 
-OLED_SSD1306 display(PIN_OLED_DC, PIN_OLED_RESET, PIN_OLED_CS);
-Sketcher    sketcher;
-Renderer    renderer;
+    OLED_SSD1306 display(PIN_OLED_DC, PIN_OLED_RESET, PIN_OLED_CS);
+    Sketcher    sketcher;
+    Renderer    renderer;
 #elif SABER_DISPLAY == SABER_DISPLAY_7_5_DEPRECATED
-Pixel_7_5_UI display75;
-PixelMatrix pixelMatrix;
+    Pixel_7_5_UI display75;
+    PixelMatrix pixelMatrix;
 #elif SABER_DISPLAY == SABER_DISPLAY_7_5
-Pixel_7_5_UI display75;
-ShiftedDotMatrix dotMatrix;
-#define SHIFTED_OUTPUT
+    Pixel_7_5_UI display75;
+    ShiftedDotMatrix dotMatrix;
+#   define SHIFTED_OUTPUT
 #elif SABER_DISPLAY == SABER_DISPLAY_SEGMENT
-ShiftedSevenSegment shifted7;
-Digit4UI digit4UI;
-#define SHIFTED_OUTPUT
-#endif
-
-#ifdef SABER_COMRF24
-RF24        rf24(PIN_SPI_CE, PIN_SPI_CS);
-ComRF24     comRF24(&rf24);
-Timer2      pingPongTimer(PING_PONG_INTERVAL);
+    ShiftedSevenSegment shifted7;
+    Digit4UI digit4UI;
+#   define SHIFTED_OUTPUT
 #endif
 
 CMDParser   cmdParser(&saberDB);
 Blade       blade;
 Timer2      vbatTimer(AveragePower::SAMPLE_INTERVAL);
-#ifdef LOG_AVE_POWER
-Timer2      vbatPrintTimer(500);
-#endif
 Timer2      gforceDataTimer(110);
 
 Tester      tester;
@@ -211,6 +218,11 @@ void setupSD()
     #ifdef SABER_SOUND_ON
     if (wavSource) {
         audioPlayer.initStream(&spiStream, 0);
+        #if NUM_AUDIO_CHANNELS == 4
+            audioPlayer.initStream(&spiStream1, 1);
+            audioPlayer.initStream(&spiStream2, 2);
+            audioPlayer.initStream(&spiStream3, 3);
+        #endif
         audioPlayer.init();
         audioPlayer.setVolume(50, 0);
     }
@@ -235,7 +247,7 @@ void setup() {
         digitalWrite(PIN_LATCH, HIGH);
     #endif
 
-    Serial.begin(19200);  // still need to turn it on in case a command line is connected.
+    Serial.begin(19200);  // Still need to turn it on in case USB is connected later to configure or debug.
     #if SERIAL_DEBUG == 1
     {
         int nTries = 0;
@@ -319,23 +331,6 @@ void setup() {
             neoPixels.setBrightness(SABER_UI_BRIGHTNESS);
             Log.p("Neopixel initialized.").eol();
         #endif
-    #endif
-
-    #ifdef SABER_COMRF24 
-        #if SABER_SUB_MODEL == SABER_SUB_MODEL_LUNA
-            const int role = 0;
-        #elif SABER_SUB_MODEL == SABER_SUB_MODEL_CELESTIA
-            const int role = 1;
-        #else
-            #error Role not defined.
-        #endif
-        if(comRF24.begin(role)) {
-            Log.p("RF24 initialized. Role=").p(comRF24.role()).eol();
-        }
-        else {
-            Log.p("RF24 error.").eol();
-        }
-
     #endif
 
     syncToDB();
@@ -453,13 +448,6 @@ void buttonAHoldHandler(const Button& button)
         if (uiMode.mode() == UIMode::NORMAL) {
             if (button.nHolds() == 1) {
                 igniteBlade();
-                int pal = saberDB.paletteIndex();
-                (void) pal;
-                #ifdef SABER_COMRF24
-                char buf[] = "ignite0";
-                buf[6] = '0' + pal;
-                comRF24.send(buf);
-                #endif
             }
         }
         else 
@@ -481,9 +469,6 @@ void buttonAHoldHandler(const Button& button)
     else if (bladeState.state() != BLADE_RETRACT) {
         if (button.nHolds() == 1) {
             retractBlade();
-            #ifdef SABER_COMRF24
-            comRF24.send("retract");
-            #endif
         }
     }
 }
@@ -503,55 +488,18 @@ void processSerial() {
 }
 
 
-#ifdef SABER_COMRF24
-void processCom(uint32_t delta)
+void processAccel(uint32_t msec, uint32_t deltaMicro)
 {
-    CStr<16> comStr;
-    comRF24.process(&comStr);
-    if (!comStr.empty()) {
-        if (comStr.beginsWith("ignite")) {
-            char c = comStr[6];
-            if (c >= '0' && c <= '7') {
-                saberDB.setPalette(c - '0');
-            }
-            igniteBlade();
-        }
-        else if (comStr == "retract") {
-            retractBlade();
-        }
-        else if (comStr == "ping") {
-            // Low priority event. Only do the breathing
-            // if the LED isn't being used to display something else.
-            if (!ledA.blinking() && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-                ledA.blink(1, BREATH_TIME, 0, LEDManager::BLINK_BREATH);
-            }
-            comRF24.send("pong");
-        }
-        else if (comStr == "pong") {
-            // Low priority event. Only do the breathing
-            // if the LED isn't being used to display something else.
-            if (!ledA.blinking() && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-                ledA.blink(1, BREATH_TIME, 0, LEDManager::BLINK_BREATH);
-            }
-        }
-    }
-    if (comRF24.role() == 1 && bladeState.state() == BLADE_OFF && uiMode.mode() == UIMode::NORMAL) {
-        if (pingPongTimer.tick(delta)) {
-            comRF24.send("ping");
-        }
-    }
-}
+    float g2Normal = 1.0f;
+    float g2 = 1.0f;
+    float ax=0, ay=0, az=0;
+    accel.read(&ax, &ay, &az, &g2, &g2Normal);
+
+#ifdef SABER_SMOOTH_SWING
+    accelSpeed.push(ax, ay, az, deltaMicro);
 #endif
 
-
-void processAccel(uint32_t msec)
-{
     if (bladeState.state() == BLADE_ON) {
-        float g2Normal = 1.0f;
-        float g2 = 1.0f;
-        float ax=0, ay=0, az=0;
-        accel.read(&ax, &ay, &az, &g2, &g2Normal);
-
         maxGForce2 = max(maxGForce2, g2);
         float motion = saberDB.motion();
         float impact = saberDB.impact();
@@ -590,25 +538,26 @@ void processAccel(uint32_t msec)
 }
 
 void loop() {
-    // Doesn't seem to get called on M0 / ItsyBitsy. Not sure why.
+    // processSerial() doesn't seem to get called on M0 / ItsyBitsy. 
+    // Not sure why.
     // processSerial() is intended to be "out of loop". Call it
     // first in the loop to try to preserve current behavior.
     processSerial();
 
     const uint32_t msec = millis();
+    const uint32_t micro = micros();
     uint32_t delta = msec - lastLoopTime;
+    uint32_t deltaMicro = micro - lastLoopTimeMicro;
     lastLoopTime = msec;
+    lastLoopTimeMicro = micro;
 
     tester.process();
 
     buttonA.process();
     ledA.process();
-    #ifdef SABER_COMRF24
-    processCom(delta);
-    #endif
-    processAccel(msec);
+    processAccel(msec, deltaMicro);
 
-    bladeState.process(&blade, saberDB, millis());
+    bladeState.process(&blade, saberDB, msec);
     sfx.process();
 
     if (vbatTimer.tick(delta)) {
@@ -617,12 +566,6 @@ void loop() {
         uiRenderData.mVolts = voltmeter.averagePower();
     }
     
-    #ifdef LOG_AVE_POWER
-    if (vbatPrintTimer.tick(delta)) {
-        Log.p(" ave power=").p(voltmeter.averagePower()).eol();
-    }
-    #endif    
-
     if (gforceDataTimer.tick(delta)) {
         #if SABER_DISPLAY == SABER_DISPLAY_128_32
             maxGForce2 = constrain(maxGForce2, 0.1, 16);

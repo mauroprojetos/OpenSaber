@@ -43,18 +43,16 @@ AudioBufferData I2SAudio::audioBufferData[NUM_AUDIO_BUFFERS];
 
 volatile uint8_t dmaPlaybackBuffer = 0;
 
-I2SAudio::ChangeReq I2SAudio::changeReq[NUM_CHANNELS];
+I2SAudio::ChangeReq I2SAudio::changeReq[NUM_AUDIO_CHANNELS];
 
 void I2SAudio::outerFill(int id)
 {
     I2SAudio::tracker.timerCalls++;
     I2SAudio *audio = I2SAudio::instance();
 
-    for (int i = 0; i < NUM_CHANNELS; ++i)
-    {
-        if (changeReq[i].isQueued)
-        {
-            ChangeReq &cr = changeReq[i];
+    for(int i=0; i<NUM_AUDIO_CHANNELS; ++i) {
+        if (changeReq[i].isQueued) {
+            ChangeReq& cr = changeReq[i];
             cr.isQueued = false;
             I2SAudio::tracker.timerQueued++;
             wav12::IStream *iStream = I2SAudio::instance()->iStream[i];
@@ -111,8 +109,7 @@ I2SAudio::I2SAudio(Adafruit_ZeroI2S &_i2s, Adafruit_ZeroDMA &_dma, Adafruit_SPIF
     // The services aren't started yet.
     _instance = this;
 
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
+    for(int i=0; i<NUM_AUDIO_CHANNELS; i++) {
         iStream[i] = 0;
         volume256[i] = 256;
         looping[i] = 0;
@@ -123,17 +120,14 @@ I2SAudio::I2SAudio(Adafruit_ZeroI2S &_i2s, Adafruit_ZeroDMA &_dma, Adafruit_SPIF
 void I2SAudio::init()
 {
     Log.p("I2SAudio::init()").eol();
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
-        if (iStream[i] == 0)
-        {
+    for(int i=0; i<NUM_AUDIO_CHANNELS; i++) {
+        if (iStream[i] == 0) {
             Log.p("I2SAudio::init() IStream index=").p(i).p(" is null.").eol();
             ASSERT(false);
         }
     }
 
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
+    for(int i=0; i<NUM_AUDIO_CHANNELS; i++) {
         changeReq[i].reset();
     }
 
@@ -195,7 +189,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
     // it is read and modified by the timer callback. readFile()
     // above will acquire and release the lock on its own.
 
-    channel = clamp(channel, 0, NUM_CHANNELS - 1);
+    channel = clamp(channel, 0, NUM_AUDIO_CHANNELS-1);
     noInterrupts();
     ChangeReq &cr = changeReq[channel];
     cr.addr = baseAddr;
@@ -212,9 +206,8 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
 bool I2SAudio::play(const char *filename, bool loop, int channel)
 {
     int index = MemImage.lookup(filename);
-    if (index >= 0)
-    {
-        play(index, loop, clamp(channel, 0, NUM_CHANNELS - 1));
+    if (index >= 0) {
+        play(index, loop, clamp(channel, 0, NUM_AUDIO_CHANNELS-1));
     }
     return true;
 }
@@ -222,7 +215,7 @@ bool I2SAudio::play(const char *filename, bool loop, int channel)
 void I2SAudio::stop(int channel)
 {
     //Log.p("stop").eol();
-    channel = clamp(channel, 0, NUM_CHANNELS - 1);
+    channel = clamp(channel, 0, NUM_AUDIO_CHANNELS-1);
     noInterrupts();
     ChangeReq &cr = changeReq[channel];
     cr.addr = 0;
@@ -236,7 +229,7 @@ void I2SAudio::stop(int channel)
 
 bool I2SAudio::isPlaying(int channel) const
 {
-    channel = clamp(channel, 0, NUM_CHANNELS - 1);
+    channel = clamp(channel, 0, NUM_AUDIO_CHANNELS-1);
     noInterrupts();
     ChangeReq &cr = changeReq[channel];
     bool isQueued = cr.isQueued;
