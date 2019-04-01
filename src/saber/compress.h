@@ -65,7 +65,7 @@ namespace wav12 {
     class ExpanderV
     {
     public:
-        static const int BUFFER_SIZE = 256;
+        static const int BUFFER_SIZE = 128;
 
         ExpanderV() {}
         void init(IStream* stream, uint32_t nSamples, int format);
@@ -74,6 +74,9 @@ namespace wav12 {
         int expand(int32_t* target, uint32_t nTarget, int32_t volume, bool add);
         bool done() const { return m_done; }
         void rewind();
+
+        // Debugging
+        const IStream* stream() const { return m_stream; }        
 
     private:
         inline bool hasSample() {

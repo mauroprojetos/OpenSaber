@@ -66,10 +66,14 @@ void I2SAudio::outerFill(int id)
 
     ASSERT(audioBuffer0 == audioBufferData[0].buffer);
     ASSERT(audioBuffer1 == audioBufferData[1].buffer);
+    ASSERT(audio);
+    
     for (int i = 0; i < NUM_CHANNELS; ++i)
     {
         bool add = i > 0;
         bool looping = audio->looping[i];
+        //Log.p("fillBuffer i=").p(i).eol();
+        //ASSERT(expander[i].stream());
         int rc = audioBufferData[id].fillBuffer(expander[i], audio->expandVolume(i), looping, add);
         if (rc != 0)
         {
@@ -169,6 +173,7 @@ void I2SAudio::init()
     i2s.begin(I2S_32_BIT, AUDIO_FREQ);
     i2s.enableTx();
 
+    Log.p("Initial outerFill").eol();
     I2SAudio::outerFill(0);
     dmaPlaybackBuffer = 1; // seed to the first, so the dma will switch back to 0.
     stat = audioDMA.startJob();
@@ -298,9 +303,7 @@ int AudioBufferData::fillBuffer(wav12::ExpanderV &expander, int32_t volume, bool
         while (totalRead < AUDIO_BUFFER_SAMPLES)
         {
             if (expander.done())
-            {
                 expander.rewind();
-            }
             uint32_t read = expander.expand(buffer + totalRead * 2, AUDIO_BUFFER_SAMPLES - totalRead, volume, add);
             totalRead += read;
         }
