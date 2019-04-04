@@ -64,9 +64,8 @@ bool wav12::compressVelocity(const int16_t *data, int32_t nSamples, uint8_t **co
     return false;
 }
 
-void ExpanderV::init(IStream *stream, uint32_t nSamples, int format)
+void ExpanderV::init(IStream *stream)
 {
-    assert(format == 3);
     m_stream = stream;
     m_done = false;
 }
@@ -74,7 +73,6 @@ void ExpanderV::init(IStream *stream, uint32_t nSamples, int format)
 void ExpanderV::rewind()
 {
     m_bufferEnd = m_bufferStart = 0;
-    memset(m_buffer, 0, BUFFER_SIZE);
     m_vel = Velocity();
     m_done = false;
     m_stream->rewind();
@@ -123,6 +121,9 @@ void ExpanderV::fetch()
 
 int ExpanderV::expand(int32_t *target, uint32_t nSamples, int32_t volume, bool add)
 {
+    if (!m_stream)
+        return 0;
+        
     for (uint32_t i = 0; i < nSamples; ++i)
     {
         if (!hasSample())
@@ -135,6 +136,9 @@ int ExpanderV::expand(int32_t *target, uint32_t nSamples, int32_t volume, bool a
         const int32_t guess = m_vel.guess();
         int32_t value = 0;
 
+        // If the high bit is a set, it is a 1 byte sample.
+        // If extra bits - high3 - are carried over from
+        // a previous 2 byte sample, they are applied here.
         if (src[0] & 0x80)
         {
             int32_t low7 = src[0] & 0x7f;
@@ -157,9 +161,13 @@ int ExpanderV::expand(int32_t *target, uint32_t nSamples, int32_t volume, bool a
         }
         else
         {
+            // Two byte sample, since the high bit is NOT set.
+            // 1 bit (clear) flag, 3 bits of storage for the next sample,
+            // and 12 bits of value.
+            //
             // Stored as: low7 high5
             static const int32_t BIAS = 2048;
-            m_high3 = (src[1] & 0xe0) >> 5; // save for later
+            m_high3 = (src[1] & 0xe0) >> 5;
 
             int32_t low7 = src[0] & 0x7f;
             int32_t high5 = (src[1] & 0x1f);
@@ -189,15 +197,18 @@ int ExpanderV::expand(int32_t *target, uint32_t nSamples, int32_t volume, bool a
 MemStream::MemStream(const uint8_t *data, uint32_t size)
 {
     m_data = data;
-    m_size = size;
+    m_data_end = data + size;
+    m_addr = 0;
+    m_size = 0;
     m_pos = 0;
 }
 
 void MemStream::set(uint32_t addr, uint32_t size)
 {
-    assert(addr == 0); // just not implemented
-    assert(size == this->m_size);
+    m_addr = addr;
+    m_size = size;
     m_pos = 0;
+    assert(m_data + m_addr + m_size <= m_data_end);
 }
 
 void MemStream::rewind()
@@ -207,8 +218,10 @@ void MemStream::rewind()
 
 uint32_t MemStream::fetch(uint8_t *buffer, uint32_t nBytes)
 {
-    uint32_t n = wav12Min(nBytes, m_size - m_pos);
-    memcpy(buffer, m_data + m_pos, n);
-    m_pos += n;
-    return n;
+    if (m_pos + nBytes > m_size)
+        nBytes = m_size - m_pos;
+
+    memcpy(buffer, m_data + m_pos, nBytes);
+    m_pos += nBytes;
+    return nBytes;
 }

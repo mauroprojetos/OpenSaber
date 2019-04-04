@@ -16,7 +16,6 @@
 #define AUDIO_BUFFER_SAMPLES 384
 #define STEREO_BUFFER_SAMPLES (AUDIO_BUFFER_SAMPLES*2)
 #define MICRO_PER_AUDIO_BUFFER (1000 * 1000 * AUDIO_BUFFER_SAMPLES / AUDIO_FREQ)
-#define AUDIO_SUB_BUFFER 256
 #define NUM_AUDIO_BUFFERS 2
 
 class Adafruit_SPIFlash;
@@ -144,7 +143,7 @@ private:
 class SPIStream : public wav12::IStream
 {
 public:
-    SPIStream(Adafruit_SPIFlash& flash) : m_flash(flash) { set(0, 0); }
+    SPIStream(Adafruit_SPIFlash& flash) : m_flash(flash) {}
 
     virtual void set(uint32_t addr, uint32_t size);
     virtual uint32_t fetch(uint8_t* target, uint32_t nBytes);
