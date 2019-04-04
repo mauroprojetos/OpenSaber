@@ -33,14 +33,14 @@ bool TestUtil()
     TEST_IS_TRUE(iSin(FixedNorm(1, 4)) == 1);
     TEST_IS_TRUE(iSin(FixedNorm(2, 4)) == 0);
     TEST_IS_TRUE(iSin(FixedNorm(3, 4)) == -1);
-
+    
     FixedNorm ref(0);
     for (int i = 0; i < 10; i++) {
         FixedNorm fn = iSin(FixedNorm(i, 1024));
         TEST_IS_TRUE(fn >= ref);
         ref = fn;
     }
-    
+
     return true;
 }
 

@@ -198,7 +198,7 @@ void SPLog::eol() const
 
 void AssertOut(const char* message, const char* file, int line)
 {
-  Log.p("ASSERT: ").p(message).p(" ").p(file).p(" ").p(line).eol();
+    Log.p("ASSERT: ").p(message).p(" ").p(file).p(" ").p(line).eol();
 }
 
 void AssertOut2(const char* message, int x, int y, const char* file, int line)

@@ -16,12 +16,12 @@ struct RGB {
 		BLACK = 0
 	};
 
-	RGB() {}
+    RGB() {}
     RGB(const RGB& other) { r = other.r; g = other.g; b = other.b; }
     RGB(uint8_t _r, uint8_t _g, uint8_t _b) {
         r = _r; g = _g; b = _b;
     }
-	RGB(uint32_t c) { set(c); }
+    RGB(uint32_t c) { set(c); }
 
     uint8_t r = 0;
     uint8_t g = 0;
