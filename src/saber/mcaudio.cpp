@@ -183,7 +183,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
     uint32_t baseAddr = 0;
     readAudioInfo(spiFlash, file, &header, &baseAddr);
 
-    Log.p("Play [").p(fileIndex).p("]: channel=").p(channel).p(" looping=").p(loop ? 1 : 0).p(" lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" format=").p(header.format).eol();
+    Log.p("Play [").p(fileIndex).p("]: lenInBytes=").p(header.lenInBytes).p(" nSamples=").p(header.nSamples).p(" baseAddr=").p(baseAddr).p(" format=").p(header.format).eol();
 
     // Queue members need to be in the no-interupt lock since
     // it is read and modified by the timer callback. readFile()
@@ -205,6 +205,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
 
 bool I2SAudio::play(const char *filename, bool loop, int channel)
 {
+    Log.p("Play(").p(filename).p(")").eol();
     int index = MemImage.lookup(filename);
     if (index >= 0) {
         play(index, loop, clamp(channel, 0, NUM_AUDIO_CHANNELS-1));

@@ -70,15 +70,15 @@ namespace wav12 {
         static const int BUFFER_SIZE = 128;
 
         ExpanderV() {}
-        void init(IStream* stream);
+        void attach(IStream* stream);
 
         // Returns the number of samples it could expand.
         int expand(int32_t* target, uint32_t nTarget, int32_t volume, bool add);
         bool done() const { return m_done; }
         void rewind();
 
-        // Debugging
-        const IStream* stream() const { return m_stream; }        
+    private:
+        void reset();
 
     private:
         inline bool hasSample() {
