@@ -70,6 +70,15 @@ void SFX::filePath(CStr<25>* path, const char* dir, const char* file)
     path->append(file);
 }
 
+void SFX::randomFilePath(CStr<25>* path, int sound)
+{
+    int track = m_location[sound].start + m_random.rand(m_location[sound].count);
+    ASSERT(track >= 0);
+    ASSERT(track < m_numFilenames);
+
+    filePath(path, m_dirName[m_currentFont], track);
+}
+
 void SFX::filePath(CStr<25>* path, int index)
 {
     path->clear();
@@ -183,10 +192,8 @@ void SFX::scanFiles(uint8_t index)
     static const char* NAMES[NUM_SFX_TYPES] = {
         "Idle        ",
         "Motion      ",
-        //"Spin        ",
         "Impact      ",
-        "User_Tap    ",
-        //"User_Hold   ",
+        "Blaster     ",
         "Power_On    ",
         "Power_Off   "
     };
@@ -279,43 +286,80 @@ bool SFX::playSound(int sound, int mode)
     }
     else if (sound == SFX_POWER_OFF) {
         if (!m_bladeOn)
-            return false;  // defensive error check. BUT gets in the way of meditation playback.
+            return false;  // defensive error check.
         m_bladeOn = false;
     }
 
     if (!m_player->isPlaying(0)) {
         m_currentSound = SFX_NONE;
     }
+    CStr<25> path;
 
-    if (   m_currentSound == SFX_NONE
-            || (mode == SFX_OVERRIDE)
-            || (mode == SFX_GREATER && sound > m_currentSound)
-            || (mode == SFX_GREATER_OR_EQUAL && sound >= m_currentSound))
+    if (SMOOTH_SWING)
     {
-        int track = m_location[sound].start + m_random.rand(m_location[sound].count);
-        ASSERT(track >= 0);
-        ASSERT(track < m_numFilenames);
+        if (sound == SFX_POWER_ON) {
+            filePath(&path, m_dirName[m_currentFont].c_str(), m_filename[SFX_IDLE].c_str());
+            m_player->play(path.c_str(), true, IDLE_CHANNEL);
+            m_player->setVolume(0, 0);  // volume set correctly in process()
+            m_bladeOnTime = millis();
 
-        //Log.p("SFX play track ").p(m_filename[track].c_str()).eol();
-        EventQ.event("[SFX play]", sound);
-
-        CStr<25> path;
-        if (m_numFonts > 0 && m_currentFont >= 0) {
-            filePath(&path, m_dirName[m_currentFont].c_str(), m_filename[track].c_str());
+            randomFilePath(&path, sound);
+            m_player->play(path.c_str(), false, EFFECT_CHANNEL);
+            m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
+            m_currentSound = sound;
         }
-        else {
-            path = m_filename[track].c_str();
+        else if (sound == SFX_POWER_OFF) {
+            m_bladeOffTime = millis();
+            randomFilePath(&path, sound);
+            m_player->play(path.c_str(), false, EFFECT_CHANNEL);
+            m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
+            m_currentSound = sound;
         }
-        if (m_savedVolume >= 0) {
-            m_player->setVolume(m_savedVolume, 0);
-            m_savedVolume = -1;
+        else if (sound == SFX_BLASTER || sound == SFX_IMPACT) {
+            m_currentSound = m_player->isPlaying(EFFECT_CHANNEL) ? m_currentSound : SFX_NONE;
+            if (   m_currentSound == SFX_NONE
+                    || (mode == SFX_OVERRIDE)
+                    || (mode == SFX_GREATER && sound > m_currentSound)
+                    || (mode == SFX_GREATER_OR_EQUAL && sound >= m_currentSound))
+            {
+                randomFilePath(&path, sound);
+                m_player->play(path.c_str(), false, EFFECT_CHANNEL);
+                m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
+                m_currentSound = sound;
+            }
         }
-        m_player->play(path.c_str(), sound == SFX_IDLE, 0);
-        m_currentSound = sound;
-        m_lastSFX = sound;
-        return true;
     }
-    return false;
+    else 
+    {
+        if (   m_currentSound == SFX_NONE
+                || (mode == SFX_OVERRIDE)
+                || (mode == SFX_GREATER && sound > m_currentSound)
+                || (mode == SFX_GREATER_OR_EQUAL && sound >= m_currentSound))
+        {
+            int track = m_location[sound].start + m_random.rand(m_location[sound].count);
+            ASSERT(track >= 0);
+            ASSERT(track < m_numFilenames);
+
+            //Log.p("SFX play track ").p(m_filename[track].c_str()).eol();
+            EventQ.event("[SFX play]", sound);
+
+            if (m_numFonts > 0 && m_currentFont >= 0) {
+                filePath(&path, m_dirName[m_currentFont].c_str(), m_filename[track].c_str());
+            }
+            else {
+                path = m_filename[track].c_str();
+            }
+            if (m_savedVolume >= 0) {
+                m_player->setVolume(m_savedVolume, 0);
+                m_savedVolume = -1;
+            }
+            m_player->play(path.c_str(), sound == SFX_IDLE, 0);
+            m_currentSound = sound;
+            m_lastSFX = sound;
+            return true;
+        }
+        return false;
+    }
 }
 
 bool SFX::playUISound(int n, bool prepend)
@@ -405,6 +449,33 @@ void SFX::process()
             playSound(SFX_IDLE, SFX_OVERRIDE);
         }
     }
+    if(SMOOTH_SWING && m_player->isPlaying(0)) {
+        // Set the idle/hum as needed.
+        if (m_bladeOffTime) {
+            m_bladeOnTime = 0;
+            uint32_t m = millis();
+            if (m - m_bladeOffTime >= m_retractTime) {
+                m_bladeOffTime = 0;
+                m_player->stop(0);
+            }
+            else {
+                uint32_t fraction = 1024 - 1024 * (m - m_bladeOffTime) / m_retractTime;
+                m_player->setVolume(m_masterVolume * fraction / 1024, 0);
+            }
+        }
+        if (m_bladeOnTime) {
+            uint32_t m = millis();
+            if (m - m_bladeOnTime >= m_igniteTime) {
+                m_bladeOnTime = 0;
+                m_player->setVolume(m_masterVolume, 0);
+            }
+            else {
+                uint32_t fraction = 1024 * (m - m_bladeOnTime) / m_igniteTime;
+                m_player->setVolume(m_masterVolume * fraction / 1024, 0);
+            }
+        }
+    }
+
     // Basically sets the enable line; do this 
     // last so enable isn't cycled without need.
     m_player->process();
@@ -480,29 +551,6 @@ void SFX::readIgniteRetract()
         filePath(&path, m_location[SFX_POWER_OFF].start);
         readHeader(path.c_str(), &m_retractTime);
     }
-}
-
-
-void SFX::setVolume204(int vol)
-{
-    if (!m_player) return;
-    vol = constrain(vol, 0, 204);
-    if (vol >= 204) {
-        if (m_player)
-            m_player->setVolume(256, 0);
-    }
-    else {
-        if (m_player)
-            m_player->setVolume(vol * 256 / 204, 0);
-    }
-}
-
-
-uint8_t SFX::getVolume204() const
-{
-    if (m_player)
-        return m_player->volume(0) * 204 / 256;
-    return 160;
 }
 
 
