@@ -226,9 +226,14 @@ int SFX::calcSlot(const char* name )
     else if (istrStarts(name, "IDLE")    || istrStarts(name, "HUM"))        slot = SFX_IDLE;
     else if (istrStarts(name, "IMPACT")  || istrStarts(name, "CLASH"))      slot = SFX_IMPACT;
     else if (istrStarts(name, "MOTION")  || istrStarts(name, "SWING"))      slot = SFX_MOTION;
-    //else if (istrStarts(name, "USRHOLD") || istrStarts(name, "LOCKUP"))     slot = SFX_USER_HOLD;
-    else if (istrStarts(name, "USRTAP")  || istrStarts(name, "BLASTER"))    slot = SFX_USER_TAP;
-    //else if (istrStarts(name, "SPIN"))                                      slot = SFX_SPIN;
+    else if (istrStarts(name, "USRTAP")  || istrStarts(name, "BLASTER"))    slot = SFX_BLASTER;
+
+    else if (istrStarts(name, "BLST"))  slot = SFX_BLASTER;
+    else if (istrStarts(name, "CLSH"))  slot = SFX_IMPACT;
+    else if (istrStarts(name, "HUM"))   slot = SFX_IDLE;
+    else if (istrStarts(name, "IN"))    slot = SFX_POWER_OFF;
+    else if (istrStarts(name, "OUT"))   slot = SFX_POWER_ON;
+    else if (istrStarts(name, "SWINGH") || istrStarts(name, "SWINGL"))   slot = SFX_MOTION;
 
     return slot;
 }

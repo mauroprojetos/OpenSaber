@@ -669,6 +669,7 @@ static const int32_t LOW_VOLTAGE 		= 3400;		// 3500 gets sketchy. By 3.4 we're w
 	#define SABER_VOLTMETER			
 	#define SABER_BUTTON 			Button::INTERNAL_PULLUP
 	#define SABER_UI_LED			SABER_LED_DOTSTAR
+	#define NUM_AUDIO_CHANNELS 4
 
 	#define SABER_NUM_LEDS 			4
 	#define SABER_UI_START			0
@@ -870,6 +871,7 @@ enum {
 
 static const float DEFAULT_G_FORCE_MOTION = 1.3f;
 static const float DEFAULT_G_FORCE_IMPACT = 3.0f;	// Was 2.3. Testing.
+static const bool SMOOTH_SWING = (NUM_AUDIO_CHANNELS > 1) ? true : false;
 
 #endif // PINS_HEADER
 

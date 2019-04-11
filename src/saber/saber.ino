@@ -95,7 +95,12 @@ SFX sfx(&audioPlayer);
 Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
 Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
 Adafruit_ZeroDMA audioDMA;
-SPIStream spiStream(spiFlash);              // FIXME global generic resource
+SPIStream spiStream(spiFlash);
+#if NUM_AUDIO_CHANNELS == 4
+SPIStream spiStream1(spiFlash);
+SPIStream spiStream2(spiFlash);
+SPIStream spiStream3(spiFlash);
+#endif
 I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 SFX sfx(&audioPlayer);
 ConstMemImage MemImage(spiFlash);
@@ -415,7 +420,7 @@ void buttonAClickHandler(const Button&)
     }
     else if (bladeState.state() == BLADE_ON) {
         bladeState.change(BLADE_FLASH);
-        sfx.playSound(SFX_USER_TAP, SFX_GREATER_OR_EQUAL);
+        sfx.playSound(SFX_BLASTER, SFX_GREATER_OR_EQUAL);
     }
 }
 
