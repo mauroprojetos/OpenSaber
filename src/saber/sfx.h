@@ -71,6 +71,8 @@ class SFX
     bool playUISound(int n, bool prepandUIPath = true);
     void stopSound();
 
+    void setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume);
+
     // The class of SFX (MOTION, IMPACT, etc) last successfully played.
     int lastSFX() const { return m_lastSFX; }
 
@@ -100,8 +102,8 @@ class SFX
   protected:
     enum {
         IDLE_CHANNEL,
-        LOW_CHANNEL,
-        HIGH_CHANNEL,
+        A_CHANNEL,
+        B_CHANNEL,
         EFFECT_CHANNEL
     };
 
@@ -140,6 +142,8 @@ class SFX
     uint32_t m_igniteTime;
     uint32_t m_retractTime;
     int m_savedVolume = -1; // negative means not in use.
+    
+    FixedNorm m_prevSwingVolume;
 
     Random m_random;
     SFXLocation m_location[NUM_SFX_TYPES]; // written at scanFiles

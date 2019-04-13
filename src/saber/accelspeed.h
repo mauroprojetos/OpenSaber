@@ -5,6 +5,7 @@ class AccelSpeed
 {
 public:
     AccelSpeed();
+    void begin() {}
 
     void push(float ax, float ay, float az, uint32_t microDT);
 
@@ -17,6 +18,7 @@ public:
     // mix of a to b, ranges from 0 to 1
     float mix() const { return m_mix; }
 
+    // from 0.0 to 1.0
     float swingVolume() const;
 
 private:

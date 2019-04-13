@@ -76,7 +76,7 @@ void SFX::randomFilePath(CStr<25>* path, int sound)
     ASSERT(track >= 0);
     ASSERT(track < m_numFilenames);
 
-    filePath(path, m_dirName[m_currentFont], track);
+    filePath(path, m_dirName[m_currentFont].c_str(), m_filename[track].c_str());
 }
 
 void SFX::filePath(CStr<25>* path, int index)
@@ -219,6 +219,9 @@ void SFX::scanFiles(uint8_t index)
         Log.eol();
         #endif
     }
+    if (SMOOTH_SWING) {
+        ASSERT(m_location[SFX_MOTION].count % 2 == 0);  // SmoothSwing must have matched hi/low pairs.
+    }
     readIgniteRetract();
 }   
 
@@ -257,6 +260,37 @@ void SFX::addFile(const char* name, int index)
     else {
         m_location[slot].count++;
     }
+}
+
+void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
+{
+    if(SMOOTH_SWING && m_bladeOn) {
+        if (swingVolume == 0 && m_prevSwingVolume != 0) {
+            int group = m_location[SFX_MOTION].count / 2;
+            int g = m_random.rand(group);
+            m_player->setVolume(0, A_CHANNEL);
+            m_player->setVolume(0, B_CHANNEL);
+
+            CStr<25> a, b;
+
+            if (m_random.rand(4) == 0) {
+                filePath(&a, m_location[SFX_MOTION].start + group + g);
+                filePath(&b, m_location[SFX_MOTION].start + g);
+            }
+            else {
+                filePath(&a, m_location[SFX_MOTION].start + g);
+                filePath(&b, m_location[SFX_MOTION].start + group + g);
+            }
+            m_player->play(a.c_str(), true, A_CHANNEL);
+            m_player->play(b.c_str(), true, B_CHANNEL);
+        }
+        else if (swingVolume > 0) {
+            FixedNorm one(1);
+            m_player->setVolume(((one - mixValue) * swingVolume).scale(m_masterVolume), A_CHANNEL);
+            m_player->setVolume(((mixValue) * swingVolume).scale(m_masterVolume), B_CHANNEL);
+        }
+    }
+    m_prevSwingVolume = swingVolume;
 }
 
 bool SFX::playSound(int sound, int mode)
@@ -326,7 +360,11 @@ bool SFX::playSound(int sound, int mode)
                 m_player->play(path.c_str(), false, EFFECT_CHANNEL);
                 m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
                 m_currentSound = sound;
+                m_lastSFX = sound;
             }
+        }
+        else if (sound == SFX_MOTION) {
+            // Do nothing; handled by smooth swing.
         }
     }
     else 
@@ -456,7 +494,8 @@ void SFX::process()
             uint32_t m = millis();
             if (m - m_bladeOffTime >= m_retractTime) {
                 m_bladeOffTime = 0;
-                m_player->stop(0);
+                for(int i=0; i<NUM_AUDIO_CHANNELS; ++i)
+                    m_player->stop(i);
             }
             else {
                 uint32_t fraction = 1024 - 1024 * (m - m_bladeOffTime) / m_retractTime;

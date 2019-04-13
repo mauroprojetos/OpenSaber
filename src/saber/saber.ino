@@ -64,6 +64,7 @@
 #include "saberUtil.h"
 #include "tester.h"
 #include "ShiftedSevenSeg.h"
+#include "accelspeed.h"
 
 #if SABER_SOUND_ON == SABER_SOUND_SD
 #include "AudioPlayer.h"
@@ -82,6 +83,7 @@ bool     flashOnClash   = false;
 float    maxGForce2     = 0.0f;
 uint32_t lastMotionTime = 0;    
 uint32_t lastLoopTime   = 0;
+uint32_t lastLoopMicros = 0;
 
 /* First up; initialize the audio system and all its 
    resources. Also need to disable the amp to avoid
@@ -100,6 +102,7 @@ SPIStream spiStream(spiFlash);
 SPIStream spiStream1(spiFlash);
 SPIStream spiStream2(spiFlash);
 SPIStream spiStream3(spiFlash);
+AccelSpeed accelSpeed;
 #endif
 I2SAudio audioPlayer(i2s, audioDMA, spiFlash);
 SFX sfx(&audioPlayer);
@@ -255,6 +258,10 @@ void setup() {
     setupSD();
 
     accel.begin();
+#   if NUM_AUDIO_CHANNELS == 4
+    accelSpeed.begin();
+#   endif
+
     delay(10);
     voltmeter.begin();
     delay(10);
@@ -324,11 +331,11 @@ void setup() {
 
     syncToDB();
     ledA.set(true); // "power on" light
-
     buttonA.setHoldRepeats(true);  // everything repeats!!
 
     EventQ.event("[saber start]");
     lastLoopTime = millis();    // so we don't get a big jump on the first loop()
+    lastLoopMicros = micros();
 
     #if defined(OVERRIDE_BOOT_SOUND)
         SFX::instance()->playUISound(OVERRIDE_BOOT_SOUND, false);
@@ -479,13 +486,19 @@ void processSerial() {
 
 void processAccel(uint32_t msec, uint32_t deltaMicro)
 {
+    float g2Normal = 1.0f;
+    float g2 = 1.0f;
+    float ax=0, ay=0, az=0;
+    accel.read(&ax, &ay, &az, &g2, &g2Normal);
+    accelSpeed.push(ax, ay, az, deltaMicro);
+
     if (bladeState.state() == BLADE_ON) {
-        float g2Normal = 1.0f;
-        float g2 = 1.0f;
-        float ax=0, ay=0, az=0;
-        accel.read(&ax, &ay, &az, &g2, &g2Normal);
+        #if NUM_AUDIO_CHANNELS == 4
+        sfx.setSmoothParams(FixedNorm(accelSpeed.mix()), FixedNorm(accelSpeed.swingVolume()));
+        #endif
 
         maxGForce2 = max(maxGForce2, g2);
+
         float motion = saberDB.motion();
         float impact = saberDB.impact();
 
@@ -530,11 +543,15 @@ void loop() {
     processSerial();
 
     const uint32_t msec = millis();
+    const uint32_t microSec = micros();
     uint32_t delta = msec - lastLoopTime;
+    uint32_t deltaMicro = microSec - lastLoopMicros;
     lastLoopTime = msec;
+    lastLoopMicros = microSec;
 
     tester.process();
 
+    processAccel(msec, deltaMicro);
     buttonA.process();
     ledA.process();
 
