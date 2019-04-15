@@ -1,6 +1,9 @@
 Issues:
 
 High
+- smooth: multiple clash sounds
+- smooth: volume doesn't set 
+
 Med
 Low
 

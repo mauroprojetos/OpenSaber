@@ -51,6 +51,8 @@ SFX::SFX(IAudio* audioPlayer)
     m_igniteTime = 1000;
     m_retractTime = 1000;
     m_lastSFX = SFX_NONE;
+    m_prevSwingVolume = FixedNorm(1, 10);
+
 
     memset(m_location, 255, sizeof(SFXLocation)*NUM_SFX_TYPES);
 }
@@ -266,13 +268,12 @@ void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
 {
     if(SMOOTH_SWING && m_bladeOn) {
         if (swingVolume == 0 && m_prevSwingVolume != 0) {
-            int group = m_location[SFX_MOTION].count / 2;
-            int g = m_random.rand(group);
             m_player->setVolume(0, A_CHANNEL);
             m_player->setVolume(0, B_CHANNEL);
 
+            int group = m_location[SFX_MOTION].count / 2;
+            int g = m_random.rand(group);
             CStr<25> a, b;
-
             if (m_random.rand(4) == 0) {
                 filePath(&a, m_location[SFX_MOTION].start + group + g);
                 filePath(&b, m_location[SFX_MOTION].start + g);
@@ -288,6 +289,8 @@ void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
             FixedNorm one(1);
             m_player->setVolume(((one - mixValue) * swingVolume).scale(m_masterVolume), A_CHANNEL);
             m_player->setVolume(((mixValue) * swingVolume).scale(m_masterVolume), B_CHANNEL);
+            //m_player->setVolume(m_masterVolume, A_CHANNEL);
+            //m_player->setVolume(0, B_CHANNEL);
         }
     }
     m_prevSwingVolume = swingVolume;
@@ -332,7 +335,7 @@ bool SFX::playSound(int sound, int mode)
     if (SMOOTH_SWING)
     {
         if (sound == SFX_POWER_ON) {
-            filePath(&path, m_dirName[m_currentFont].c_str(), m_filename[SFX_IDLE].c_str());
+            randomFilePath(&path, SFX_IDLE);
             m_player->play(path.c_str(), true, IDLE_CHANNEL);
             m_player->setVolume(0, 0);  // volume set correctly in process()
             m_bladeOnTime = millis();
@@ -398,6 +401,7 @@ bool SFX::playSound(int sound, int mode)
         }
         return false;
     }
+    return false;
 }
 
 bool SFX::playUISound(int n, bool prepend)

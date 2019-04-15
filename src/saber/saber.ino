@@ -164,6 +164,7 @@ CMDParser   cmdParser(&saberDB);
 Blade       blade;
 Timer2      vbatTimer(AveragePower::SAMPLE_INTERVAL);
 Timer2      gforceDataTimer(110);
+Timer2      debugTimer(250);
 
 Tester      tester;
 bool        wavSource = false;
@@ -552,6 +553,10 @@ void loop() {
     tester.process();
 
     processAccel(msec, deltaMicro);
+    if (debugTimer.tick(delta)) {
+        Log.p("AccelSpeed speed=").p(accelSpeed.speed()).p(" mix=").p(accelSpeed.mix()).p(" vol=").p(accelSpeed.swingVolume()).eol();
+    }
+
     buttonA.process();
     ledA.process();
 
