@@ -268,6 +268,7 @@ void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
 {
     if(SMOOTH_SWING && m_bladeOn) {
         if (swingVolume == 0 && m_prevSwingVolume != 0) {
+            m_player->setVolume(m_masterVolume, IDLE_CHANNEL);
             m_player->setVolume(0, A_CHANNEL);
             m_player->setVolume(0, B_CHANNEL);
 
@@ -283,14 +284,15 @@ void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
                 filePath(&b, m_location[SFX_MOTION].start + group + g);
             }
             m_player->play(a.c_str(), true, A_CHANNEL);
-            m_player->play(b.c_str(), true, B_CHANNEL);
+            m_player->play(b.c_str(), true, B_CHANNEL);            
         }
         else if (swingVolume > 0) {
             FixedNorm one(1);
             m_player->setVolume(((one - mixValue) * swingVolume).scale(m_masterVolume), A_CHANNEL);
             m_player->setVolume(((mixValue) * swingVolume).scale(m_masterVolume), B_CHANNEL);
-            //m_player->setVolume(m_masterVolume, A_CHANNEL);
-            //m_player->setVolume(0, B_CHANNEL);
+            
+            FixedNorm humVolume = one - swingVolume * FixedNorm(3, 4);
+            m_player->setVolume(humVolume.scale(m_masterVolume), IDLE_CHANNEL);
         }
     }
     m_prevSwingVolume = swingVolume;
@@ -352,19 +354,14 @@ bool SFX::playSound(int sound, int mode)
             m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
             m_currentSound = sound;
         }
-        else if (sound == SFX_BLASTER || sound == SFX_IMPACT) {
-            m_currentSound = m_player->isPlaying(EFFECT_CHANNEL) ? m_currentSound : SFX_NONE;
-            if (   m_currentSound == SFX_NONE
-                    || (mode == SFX_OVERRIDE)
-                    || (mode == SFX_GREATER && sound > m_currentSound)
-                    || (mode == SFX_GREATER_OR_EQUAL && sound >= m_currentSound))
-            {
-                randomFilePath(&path, sound);
-                m_player->play(path.c_str(), false, EFFECT_CHANNEL);
-                m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
-                m_currentSound = sound;
-                m_lastSFX = sound;
-            }
+        else if (sound == SFX_BLASTER || 
+                 (sound == SFX_IMPACT && !m_player->isPlaying(EFFECT_CHANNEL)))
+        {
+            randomFilePath(&path, sound);
+            m_player->play(path.c_str(), false, EFFECT_CHANNEL);
+            m_player->setVolume(m_masterVolume, EFFECT_CHANNEL);
+            m_currentSound = sound;
+            m_lastSFX = sound;
         }
         else if (sound == SFX_MOTION) {
             // Do nothing; handled by smooth swing.
@@ -377,19 +374,8 @@ bool SFX::playSound(int sound, int mode)
                 || (mode == SFX_GREATER && sound > m_currentSound)
                 || (mode == SFX_GREATER_OR_EQUAL && sound >= m_currentSound))
         {
-            int track = m_location[sound].start + m_random.rand(m_location[sound].count);
-            ASSERT(track >= 0);
-            ASSERT(track < m_numFilenames);
-
-            //Log.p("SFX play track ").p(m_filename[track].c_str()).eol();
             EventQ.event("[SFX play]", sound);
-
-            if (m_numFonts > 0 && m_currentFont >= 0) {
-                filePath(&path, m_dirName[m_currentFont].c_str(), m_filename[track].c_str());
-            }
-            else {
-                path = m_filename[track].c_str();
-            }
+            randomFilePath(&path, sound);
             if (m_savedVolume >= 0) {
                 m_player->setVolume(m_savedVolume, 0);
                 m_savedVolume = -1;
@@ -503,7 +489,7 @@ void SFX::process()
             }
             else {
                 uint32_t fraction = 1024 - 1024 * (m - m_bladeOffTime) / m_retractTime;
-                m_player->setVolume(m_masterVolume * fraction / 1024, 0);
+                m_player->setVolume(m_masterVolume * fraction / 1024, IDLE_CHANNEL);
             }
         }
         if (m_bladeOnTime) {
@@ -514,7 +500,7 @@ void SFX::process()
             }
             else {
                 uint32_t fraction = 1024 * (m - m_bladeOnTime) / m_igniteTime;
-                m_player->setVolume(m_masterVolume * fraction / 1024, 0);
+                m_player->setVolume(m_masterVolume * fraction / 1024, IDLE_CHANNEL);
             }
         }
     }
