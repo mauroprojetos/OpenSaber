@@ -194,7 +194,7 @@ private:
 /**
 * The CStrBuf. Wraps a buffer of characters, that doesn't have
   to be null-terminated. Optimizes for space (the size of this structure
-  should just be ALLOCATE) vs. performance. Note also the abscence of the
+  should just be ALLOCATE) vs. performance. Note also the absence of the
   c_str() method, since it can't be implemented without allocating memory.
 */
 template< int ALLOCATE >
