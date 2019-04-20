@@ -491,7 +491,7 @@ void processAccel(uint32_t msec, uint32_t deltaMicro)
     float g2 = 1.0f;
     float ax=0, ay=0, az=0;
     accel.read(&ax, &ay, &az, &g2, &g2Normal);
-    accelSpeed.push(ax, ay, az, deltaMicro);
+    accelSpeed.push(ax, ay, az, deltaMicro, bladeState.state() == BLADE_ON);
 
     if (bladeState.state() == BLADE_ON) {
         #if NUM_AUDIO_CHANNELS == 4
