@@ -553,7 +553,7 @@ void loop() {
     tester.process();
 
     processAccel(msec, deltaMicro);
-    if (debugTimer.tick(delta)) {
+    if (debugTimer.tick(delta) && bladeState.state() != BLADE_OFF) {
         Log.p("AccelSpeed speed=").p(accelSpeed.speed()).p(" mix=").p(accelSpeed.mix()).p(" vol=").p(accelSpeed.swingVolume()).eol();
     }
 

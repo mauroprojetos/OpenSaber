@@ -6,8 +6,8 @@ static const float G_LESS = 1.05f;
 static const float G_MORE = 1.2f;
 static const float DSPEED_EASING = 0.6f;
 static const float MIX_EASING = 0.1f; // 0.15f;
-static const float MOTION_THRESHOLD = 2.0f;
-static const float MOTION_FULL_VOLUME = 6.0;
+static const float MOTION_THRESHOLD = 0.2;
+static const float MOTION_FULL_VOLUME = 3.0;
 
 AccelSpeed::AccelSpeed()
 {
