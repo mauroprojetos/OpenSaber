@@ -9,6 +9,24 @@ static const float MIX_EASING = 0.1f; // 0.15f;
 static const float MOTION_THRESHOLD = 0.2;
 static const float MOTION_FULL_VOLUME = 3.0;
 
+// AGGREGATE sums to millisecond scales before
+// doing anything. A "framerate" of roughly
+// 100 times / second. The micro scale is so 
+// small it generates computational noise.
+#define AGGREGATE  
+
+// LOG_DATA records data to an internal array
+// that can be dumped to console and post processed.
+#define LOG_DATA
+
+struct ASData {
+    float ax_g;
+    float ay_g;
+    float az_g;
+    uint32_t microDT;
+};
+
+
 AccelSpeed::AccelSpeed()
 {
 }
@@ -38,7 +56,7 @@ float AccelSpeed::swingVolume() const
     return (m_speed - MOTION_THRESHOLD) / (MOTION_FULL_VOLUME - MOTION_THRESHOLD);
 }
 
-void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis)
+void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis, bool bladeOn)
 {
     static const float MILLIS_TO_S = 1.0f / 1000.0f;
     static const float G = 9.81f;    // m/s2

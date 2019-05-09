@@ -7,7 +7,7 @@ public:
     AccelSpeed();
     void begin() {}
 
-    void push(float ax, float ay, float az, uint32_t deltaTimeMillis);
+    void push(float ax, float ay, float az, uint32_t deltaMillis, bool bladeOn);
 
     // Current speed in m/s
     float speed() const { return m_speed; }
@@ -35,6 +35,11 @@ private:
     }
 
     void calcMix();
+
+    float accumAX = 0;
+    float accumAY = 0;
+    float accumAZ = 0;
+    uint32_t accumDT = 0;
 
     float vx = 0;
     float vy = 0;
