@@ -207,7 +207,7 @@ bool I2SAudio::play(int fileIndex, bool loop, int channel)
 
 bool I2SAudio::play(const char *filename, bool loop, int channel)
 {
-    Log.p("Play(").p(filename).p(")").eol();
+    // Log.p("Play(").p(filename).p(")").eol();
     int index = MemImage.lookup(filename);
     if (index >= 0) {
         play(index, loop, clamp(channel, 0, NUM_AUDIO_CHANNELS-1));

@@ -20,6 +20,9 @@
   SOFTWARE.
 */
 
+// #define PROFILE
+// #define LOG_ACCEL 1024*2
+
 // Arduino Libraries
 #ifdef CORE_TEENSY
 #include <EEPROM.h>
@@ -52,8 +55,12 @@
     #endif
 #endif
 
+// Generalized accelerometer is simpler to code and works for prop shield.
+// But the LIS3DH is simpler to use directly, and the smooth-sound relies
+// on the constant frequency output. Now using the LIS3DH, moved generalized
+// to git history (accelerometer.cpp/h and accelFXOS8700.cpp/h)
+#include "GrinlizLIS3DH.h"
 
-#include "accelerometer.h"
 #include "voltmeter.h"
 #include "sfx.h"
 #include "saberdb.h"
@@ -85,6 +92,14 @@ uint32_t lastMotionTime = 0;
 uint32_t lastLoopTime   = 0;
 uint32_t lastLoopMicros = 0;
 
+#ifdef LOG_ACCEL
+GrinlizLIS3DH::RawData accelDataBuf[LOG_ACCEL];
+GrinlizLIS3DH::RawData* accelData = accelDataBuf;
+#else
+GrinlizLIS3DH::RawData* accelData = 0;
+#endif 
+int nAccelLog = 0;
+
 /* First up; initialize the audio system and all its 
    resources. Also need to disable the amp to avoid
    clicking. (clicking isn't a problem with the i2s amp)
@@ -94,7 +109,7 @@ AudioPlayer audioPlayer;
 SFX sfx(&audioPlayer);
 
 #elif SABER_SOUND_ON == SABER_SOUND_FLASH
-Adafruit_ZeroI2S i2s(0, 1, 12, 2);          // FIXME define pins
+Adafruit_ZeroI2S i2s(PIN_I2S_LRCLK, PIN_I2S_BITCLK, PIN_I2S_DATA, 2);
 Adafruit_SPIFlash spiFlash(SS1, &SPI1);     // Use hardware SPI 
 Adafruit_ZeroDMA audioDMA;
 SPIStream spiStream(spiFlash);
@@ -135,9 +150,10 @@ Voltmeter   voltmeter;
     #endif
 #endif
 
-Accelerometer accel;
+GrinlizLIS3DH accel(PIN_ACCEL_EN);
 
 Timer2 displayTimer(100);
+Timer2 vbatPrintTimer(1000);
 
 #if SABER_DISPLAY == SABER_DISPLAY_128_32
 static const int OLED_WIDTH = 128;
@@ -169,7 +185,6 @@ Timer2      debugTimer(250);
 Tester      tester;
 bool        wavSource = false;
 
-
 void setupSD()
 {
     Log.p("setupSD()").eol();
@@ -196,11 +211,10 @@ void setupSD()
         Log.p("SPI Flash Memory").eol();
         Log.p("Manufacturer: 0x").p(manid, HEX).eol();
         Log.p("Device ID: 0x").p(devid, HEX).eol();
-        Log.p("Pagesize: ").p(spiFlash.pageSize()).p(" Page buffer: ").p(LOCAL_PAGESIZE).eol();
+        Log.p("Pagesize: ").p(spiFlash.pageSize()).eol();
 
         MemImage.begin();
         saberDB.writeDefaults(); // FIXME proper vprom emulation.
-        //Log.p("Free ram:").p(FreeRam()).eol();
 
         wavSource = true;
     #endif
@@ -258,10 +272,28 @@ void setup() {
     SPI.begin();
     setupSD();
 
-    accel.begin();
+    {
+        pinMode(PIN_ACCEL_EN, OUTPUT);
+        digitalWrite(PIN_ACCEL_EN, HIGH);
+
+        int nTries = 0;
+        bool okay = false;
+        while(nTries < 5) {
+            okay = accel.begin();
+            if (okay) break;
+            delay(100);
+            ++nTries;
+        }
+        if (okay)
+            Log.p("Accelerometer initialized on nTry=").p(nTries).eol();
+        else
+            Log.p("Accelerometer ERROR.").eol();
+        ASSERT(okay);
+    }
 #   if NUM_AUDIO_CHANNELS == 4
     accelSpeed.begin();
 #   endif
+
 
     delay(10);
     voltmeter.begin();
@@ -274,7 +306,6 @@ void setup() {
 
     tester.attach(&buttonA, 0);
     tester.attachDB(&saberDB);
-    tester.attachAccel(&accel);
 
     #ifdef SABER_SOUND_ON
         if (wavSource) {
@@ -313,11 +344,9 @@ void setup() {
     #endif
 
     #if defined(SABER_NUM_LEDS)
-        Log.p(__LINE__).eol();
         for(int i=0; i<SABER_NUM_LEDS; ++i) {
             leds[i].set(2, 2, 2, 255);
         }
-        Log.p(__LINE__).eol();
         #if SABER_UI_LED == SABER_LED_DOTSTAR
             dotstar.beginSPI(PIN_DOTSTAR_EN);
             dotstar.display(leds, SABER_NUM_LEDS);
@@ -485,58 +514,106 @@ void processSerial() {
 }
 
 
-void processAccel(uint32_t msec, uint32_t deltaMicro)
+void processAccel(uint32_t msec)
 {
-    float g2Normal = 1.0f;
-    float g2 = 1.0f;
-    float ax=0, ay=0, az=0;
-    accel.read(&ax, &ay, &az, &g2, &g2Normal);
-    accelSpeed.push(ax, ay, az, deltaMicro);
+    static ProfileData profData("processAccel");
+    ProfileBlock block(&profData);
+
+    // Consistently process the accelerometer queue, even if we don't use the values.
+    // Also look for stalls and hitches.
+    static const int N_ACCEL = 4;
+    GrinlizLIS3DH::Data data[N_ACCEL];
+
+    #if SERIAL_DEBUG == 1
+    uint32_t start = millis();
+    #endif
+
+    int removed = 0;
+    accel.flush(N_ACCEL, &removed);
+
+    #ifdef LOG_ACCEL
+    int n = 0;
+    if (   (bladeState.state() != BLADE_OFF || nAccelLog) 
+        && nAccelLog < LOG_ACCEL - N_ACCEL) 
+    {
+        n = accel.readInner(accelData + nAccelLog, data, N_ACCEL);
+        nAccelLog += n;
+    }
+    else {
+        n = accel.read(data, N_ACCEL);
+    }
+    #else
+    int n = accel.read(data, N_ACCEL);
+    ASSERT(n <= N_ACCEL);
+    #endif
+
+    #if SERIAL_DEBUG == 1
+    uint32_t end = millis();
+    if (removed > 0) Log.p("Accelerometer samples disposed=").p(removed).eol();
+    if (end - start > 3) Log.p("WARNING accel flush & read time (ms)=").p(end - start).eol();
+    #endif
 
     if (bladeState.state() == BLADE_ON) {
+        for (int i = 0; i < n; ++i)
+        {
+            float g2Normal, g2;
+            float ax = data[i].ax;
+            float ay = data[i].ay;
+            float az = data[i].az;
+            calcGravity2(ax, ay, az, &g2, &g2Normal);
+
+            accelSpeed.push(ax, az, az, 100);
+
+            maxGForce2 = max(maxGForce2, g2);
+            float motion = saberDB.motion();
+            float impact = saberDB.impact();
+
+            // The extra check here for the motion time is because some
+            // motion loops are tacked on to the beginning of the idle
+            // loop...which makes sense. (Sortof). But leads to super-long
+            // motion. So if time is above a threshold, allow replay.
+            // Actual motion / impact sounds are usually less that 1 second.
+#ifdef SABER_SOUND_ON
+            bool sfxOverDue = ((msec - lastMotionTime) > 1500) &&
+                              ((sfx.lastSFX() == SFX_MOTION) || (sfx.lastSFX() == SFX_IMPACT));
+#else
+            bool sfxOverDue = false;
+#endif
+
+            if ((g2Normal >= impact * impact))
+            {
+                bool sound = sfx.playSound(SFX_IMPACT, sfxOverDue ? SFX_OVERRIDE : SFX_GREATER_OR_EQUAL);
+                if (sound)
+                {
+                    Log.p("Impact. g=").p(sqrt(g2)).eol();
+                    bladeState.change(BLADE_FLASH);
+                    lastMotionTime = msec;
+                }
+            }
+            else if (g2 >= motion * motion)
+            {
+                #if NUM_AUDIO_CHANNELS == 1
+                bool sound = sfx.playSound(SFX_MOTION, sfxOverDue ? SFX_OVERRIDE : SFX_GREATER);
+                if (sound)
+                {
+                    Log.p("Motion. g=").p(sqrt(g2)).eol();
+                    lastMotionTime = msec;
+                }
+                #endif
+            }
+        }
         #if NUM_AUDIO_CHANNELS == 4
         sfx.setSmoothParams(FixedNorm(accelSpeed.mix()), FixedNorm(accelSpeed.swingVolume()));
-        #endif
-
-        maxGForce2 = max(maxGForce2, g2);
-
-        float motion = saberDB.motion();
-        float impact = saberDB.impact();
-
-        // The extra check here for the motion time is because some
-        // motion loops are tacked on to the beginning of the idle
-        // loop...which makes sense. (Sortof). But leads to super-long
-        // motion. So if time is above a threshold, allow replay.
-        // Actual motion / impact sounds are usually less that 1 second.
-        #ifdef SABER_SOUND_ON
-        bool sfxOverDue = ((msec - lastMotionTime) > 1500) &&
-                          ((sfx.lastSFX() == SFX_MOTION) || (sfx.lastSFX() == SFX_IMPACT));
-        #else
-        bool sfxOverDue = false;
-        #endif
-
-        if ((g2Normal >= impact * impact)) {
-            bool sound = sfx.playSound(SFX_IMPACT, sfxOverDue ? SFX_OVERRIDE : SFX_GREATER_OR_EQUAL);
-            if (sound) {
-                Log.p("Impact. g=").p(sqrt(g2)).eol();
-                bladeState.change(BLADE_FLASH);
-                lastMotionTime = msec;
-            }
-        }
-        else if ( g2 >= motion * motion) {
-            bool sound = sfx.playSound(SFX_MOTION, sfxOverDue ? SFX_OVERRIDE : SFX_GREATER);
-            if (sound) {
-                Log.p("Motion. g=").p(sqrt(g2)).eol();
-                lastMotionTime = msec;
-            }
-        }
-    }
+        #endif    }
     else {
         maxGForce2 = 1;
     }
 }
 
 void loop() {
+    static ProfileData data("loop");
+    ProfileBlock block(&data);
+
     // processSerial() doesn't seem to get called on M0 / ItsyBitsy. 
     // Not sure why.
     // processSerial() is intended to be "out of loop". Call it
@@ -561,6 +638,7 @@ void loop() {
     ledA.process();
 
     bladeState.process(&blade, saberDB, millis());
+    processAccel(msec);
     sfx.process();
 
     if (vbatTimer.tick(delta)) {
@@ -569,9 +647,10 @@ void loop() {
         uiRenderData.mVolts = voltmeter.averagePower();
     }
     
-    #ifdef LOG_AVE_POWER
+    #ifdef PROFILE
     if (vbatPrintTimer.tick(delta)) {
         Log.p(" ave power=").p(voltmeter.averagePower()).eol();
+        DumpProfile();
     }
     #endif    
 
@@ -600,6 +679,8 @@ void loop() {
 
 void loopDisplays(uint32_t msec, uint32_t delta)
 {
+    static ProfileData data("loopDisplays");
+    ProfileBlock block(&data);
     // General display state processing. Draw to the current supported display.
 
     if (displayTimer.tick(delta)) {
@@ -634,7 +715,11 @@ void loopDisplays(uint32_t msec, uint32_t delta)
 
             // Copy back from Draw(RGB) to Dotstar(RGBA)
             for(int i=0; i<SABER_UI_COUNT; ++i) {
+                #ifdef SABER_UI_REVERSE
+                leds[SABER_UI_START + SABER_UI_COUNT - 1 - i].set(rgb[i], SABER_UI_BRIGHTNESS);
+                #else
                 leds[SABER_UI_START + i].set(rgb[i], SABER_UI_BRIGHTNESS);
+                #endif
             }
         #endif
     }

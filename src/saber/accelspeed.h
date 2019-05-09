@@ -7,7 +7,7 @@ public:
     AccelSpeed();
     void begin() {}
 
-    void push(float ax, float ay, float az, uint32_t microDT);
+    void push(float ax, float ay, float az, uint32_t deltaTimeMillis);
 
     // Current speed in m/s
     float speed() const { return m_speed; }
