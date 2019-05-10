@@ -20,7 +20,6 @@ struct float3 {
 
 struct AccelData {
     float3 accel;
-    float g;
     uint32_t time;
 };
 
@@ -53,31 +52,38 @@ int main(int argc, char* argv[])
 
     std::vector<AccelData> data;
 #if 1
-    FILE* fp = fopen("accel_cap.txt", "r");
+    FILE* fp = fopen("lad_0.txt", "r");
     if (!fp) {
-        printf("Could not apen accel_cap\n");
+        printf("Could not apen data file\n");
         SDL_Quit();
         return 1;
     }
     char buf[256];
 
+    uint32_t t = 0;
+    static const int limit = 1400;
     while (fgets(buf, 255, fp)) {
-        AccelData ad;
-        const char* p = strchr(buf, '=') + 1;
-        sscanf(p, "%f", &ad.accel.x);
-        p = strchr(p + 1, '=') + 1;
-        sscanf(p, "%f", &ad.accel.y);
-        p = strchr(p + 1, '=') + 1;
-        sscanf(p, "%f", &ad.accel.z);
-        p = strchr(p + 1, '=') + 1;
-        sscanf(p, "%f", &ad.g);
-        assert(ad.g > 0);
-        p = strchr(p + 1, '=') + 1;
-        sscanf(p, "%d", &ad.time);
+        if (data.size() >= limit) break;
+        char* p = strtok(buf, " ");
+        while (p && *p != '\n') {
+            int x = atoi(p);
+            p = strtok(0, " ");
+            int y = atoi(p);
+            p = strtok(0, " ");
+            int z = atoi(p);
+            p = strtok(0, " ");
 
-        data.push_back(ad);
+            AccelData ad;
+            ad.accel.x = x / 4096.0f;
+            ad.accel.y = y / 4096.0f;
+            ad.accel.z = z / 4096.0f;
+            ad.time = t;
+            t += 10;    // 100 samples / second
+            data.push_back(ad);
+        }
     }
     fclose(fp);
+    printf("Num data points=%d seconds=%f\n", data.size(), data.size() / 100.0f);
 #else
     int ZONE_WIDTH = 128;
     for (int i = 0; i < WIDTH; ++i) {
@@ -126,7 +132,7 @@ int main(int argc, char* argv[])
     memset(pixels, 0, sizeof(RGBA)*WIDTH*HEIGHT);
     AccelSpeed accelSpeed;
 
-    // 100ms timetamp
+    // timetamp
     for (uint32_t t = t0; t < t1; t += 100) {
         int x = WIDTH * (t - t0) / (t1 - t0);
         pixels[(HEIGHT/2)*WIDTH + x] = BLUE;
@@ -136,8 +142,7 @@ int main(int argc, char* argv[])
     std::vector<float> dSpeeds;
     std::vector<float> mix;
 
-    static const float GMAX = 5.0f;    // m/s2
-    static const float GMIN = -5.0;
+    static const float GMAX = 4.0f;    // m/s2
 
     static const float VMAX = 20.0f;
     static const float VMIN = -20.0f;
@@ -149,7 +154,8 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < data.size(); ++i) {
         const AccelData& ad = data[i];
         int x = WIDTH * (ad.time - t0) / (t1 - t0);
-        int y = int(HEIGHT * (ad.g - GMIN) / (GMAX - GMIN));
+        float g = sqrtf(ad.accel.x*ad.accel.x + ad.accel.y*ad.accel.y + ad.accel.z*ad.accel.z);
+        int y = int(HEIGHT * (g - (-GMAX)) / (2.0f * GMAX));
         if (x >= WIDTH) x = WIDTH - 1;
         if (y >= HEIGHT) y = HEIGHT - 1;
 
@@ -159,8 +165,8 @@ int main(int argc, char* argv[])
         pixels[(HEIGHT - y - 1)*WIDTH + x] = RED;
    
         if (i > 0) {
-            uint32_t micro = (data[i].time - data[i - 1].time) * 1000;
-            accelSpeed.push(data[i].accel.x, data[i].accel.y, data[i].accel.z, micro);
+            uint32_t millis = (data[i].time - data[i - 1].time);
+            accelSpeed.push(data[i].accel.x, data[i].accel.y, data[i].accel.z, millis);
 
             speeds.push_back(accelSpeed.speed());
             dSpeeds.push_back(accelSpeed.dSpeed());
@@ -168,7 +174,6 @@ int main(int argc, char* argv[])
             //mix.push_back(accelSpeed.swingVolume());
         }
     }
-
     // Speed
     for (size_t i = 0; i < speeds.size(); ++i) {
         const AccelData& ad = data[i];
@@ -214,7 +219,6 @@ int main(int argc, char* argv[])
         int y = int(HEIGHT * (speed - VMIN) / (VMAX - VMIN));
         pixels[(HEIGHT - y - 1)*WIDTH] = GREEN;
     }
-
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     assert(ren);

@@ -38,12 +38,12 @@ float AccelSpeed::swingVolume() const
     return (m_speed - MOTION_THRESHOLD) / (MOTION_FULL_VOLUME - MOTION_THRESHOLD);
 }
 
-void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t microDT)
+void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis)
 {
-    static const float MICRO_TO_S = float(1.0 / (1000.0 * 1000.0));
+    static const float MILLIS_TO_S = 1.0f / 1000.0f;
     static const float G = 9.81f;    // m/s2
 
-    const float dts = MICRO_TO_S * float(microDT);
+    const float dts = MILLIS_TO_S * deltaMillis;
 
     // V(m/s) = V(m/s) + a(m/s2) * seconds
     vx = vx + ax_g * dts * G;
