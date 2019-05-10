@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     char buf[256];
 
     uint32_t t = 0;
-    static const int limit = 1400;
+    static const int limit = 1700;
     while (fgets(buf, 255, fp)) {
         if (data.size() >= limit) break;
         char* p = strtok(buf, " ");

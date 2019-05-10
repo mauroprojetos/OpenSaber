@@ -35,7 +35,7 @@ void BladeState::change(uint8_t state)
     }
 }
 
-bool BladeState::bladeOn() const
+bool BladeState::bladeOpen() const
 {
     ASSERT(m_currentState >= BLADE_OFF && m_currentState <= BLADE_RETRACT);
     return m_currentState >= BLADE_ON && m_currentState < BLADE_RETRACT;

@@ -553,17 +553,17 @@ void processAccel(uint32_t msec)
     if (end - start > 3) Log.p("WARNING accel flush & read time (ms)=").p(end - start).eol();
     #endif
 
-    if (bladeState.state() == BLADE_ON) {
-        for (int i = 0; i < n; ++i)
-        {
-            float g2Normal, g2;
-            float ax = data[i].ax;
-            float ay = data[i].ay;
-            float az = data[i].az;
-            calcGravity2(ax, ay, az, &g2, &g2Normal);
+    for (int i = 0; i < n; ++i)
+    {
+        float g2Normal, g2;
+        float ax = data[i].ax;
+        float ay = data[i].ay;
+        float az = data[i].az;
+        calcGravity2(ax, ay, az, &g2, &g2Normal);
 
-            accelSpeed.push(ax, az, az, 100);
+        accelSpeed.push(ax, az, az, 100, bladeState.bladeOpen());   // FIXME: 100 should be queried from accelerometer
 
+        if (bladeState.state() == BLADE_ON) {
             maxGForce2 = max(maxGForce2, g2);
             float motion = saberDB.motion();
             float impact = saberDB.impact();
@@ -602,11 +602,12 @@ void processAccel(uint32_t msec)
                 #endif
             }
         }
+        else {
+            maxGForce2 = 1.0f;
+        }
         #if NUM_AUDIO_CHANNELS == 4
         sfx.setSmoothParams(FixedNorm(accelSpeed.mix()), FixedNorm(accelSpeed.swingVolume()));
-        #endif    }
-    else {
-        maxGForce2 = 1;
+        #endif    
     }
 }
 
@@ -629,7 +630,7 @@ void loop() {
 
     tester.process();
 
-    processAccel(msec, deltaMicro);
+    processAccel(msec);
     if (debugTimer.tick(delta) && bladeState.state() != BLADE_OFF) {
         Log.p("AccelSpeed speed=").p(accelSpeed.speed()).p(" mix=").p(accelSpeed.mix()).p(" vol=").p(accelSpeed.swingVolume()).eol();
     }

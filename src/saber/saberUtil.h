@@ -14,7 +14,7 @@ class SaberDB;
 enum {
     BLADE_OFF,
     BLADE_IGNITE,
-    BLADE_ON,
+    BLADE_ON,       // FIXME: rename to BLADE_IDLE? the on state is confusing
     BLADE_FLASH,
     BLADE_RETRACT
 };
@@ -30,7 +30,7 @@ public:
     }
 
     // Any of the blade-on states, not just the BLADE_ON idles state.
-    bool bladeOn() const;
+    bool bladeOpen() const;
     bool bladeOff() const {
         return m_currentState == BLADE_OFF;
     }
