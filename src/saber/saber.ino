@@ -290,11 +290,6 @@ void setup() {
             Log.p("Accelerometer ERROR.").eol();
         ASSERT(okay);
     }
-#   if NUM_AUDIO_CHANNELS == 4
-    accelSpeed.begin();
-#   endif
-
-
     delay(10);
     voltmeter.begin();
     delay(10);
@@ -561,7 +556,7 @@ void processAccel(uint32_t msec)
         float az = data[i].az;
         calcGravity2(ax, ay, az, &g2, &g2Normal);
 
-        accelSpeed.push(ax, az, az, 100, bladeState.bladeOpen());   // FIXME: 100 should be queried from accelerometer
+        accelSpeed.push(ax, az, az, 100);   // FIXME: 100 should be queried from accelerometer
 
         if (bladeState.state() == BLADE_ON) {
             maxGForce2 = max(maxGForce2, g2);

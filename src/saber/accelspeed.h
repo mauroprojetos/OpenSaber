@@ -5,20 +5,15 @@ class AccelSpeed
 {
 public:
     AccelSpeed();
-    void begin() {}
 
-    void push(float ax, float ay, float az, uint32_t deltaMillis, bool bladeOn);
+    void push(float ax, float ay, float az, uint32_t deltaMillis);
 
     // Current speed in m/s
     float speed() const { return m_speed; }
 
-    // Normal vector derivative of speed. In m/s.
-    float dSpeed() const { return m_dSpeed; }
-
     // mix of a to b, ranges from 0 to 1
     float mix() const { return m_mix; }
 
-    // from 0.0 to 1.0
     float swingVolume() const;
 
 private:
@@ -34,23 +29,12 @@ private:
         return v;
     }
 
-    void calcMix();
-
-    float accumAX = 0;
-    float accumAY = 0;
-    float accumAZ = 0;
-    uint32_t accumDT = 0;
+    void calcMix(float dts);
 
     float vx = 0;
     float vy = 0;
     float vz = 0;
+    float m_a2 = 0;
     float m_speed = 0;
-
-    float m_speed1 = 0;
-    float m_dSpeed = 0;
-    float m_maxDSpeed = 0;
-    float m_minDSpeed = 0;
-
     float m_mix = 0;
-    float m_mix1 = 0;
 };
