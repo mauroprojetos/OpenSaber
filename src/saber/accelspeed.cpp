@@ -2,10 +2,10 @@
 #include <assert.h>
 #include <math.h>
 
-static const float G_LESS = 1.05f;
-static const float G_MORE = 1.1f;
+static const float G_LESS = 1.10f;
+static const float G_MORE = 1.20f;
 static const float MOTION_MIN = 0.5f;    // m/s - used to clamp volume and mix
-static const float MOTION_MAX = 5.0f;    // m/s
+static const float MOTION_MAX = 3.0f;    // m/s
 static const float ACCEL_TO_MIX = 0.6f;  // how quickly scalar accelerations causes a shift
 
 AccelSpeed::AccelSpeed()
@@ -51,7 +51,8 @@ void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis)
     vy = vy + ay_g * dts * G;
     vz = vz + az_g * dts * G;
 
-    m_speed = sqrtf(vx*vx + vy * vy + vz * vz);
+    m_speed2 = vx * vx + vy * vy + vz * vz;
+    m_speed = sqrtf(m_speed2);
     calcMix(dts);
 
     float g2 = ax_g * ax_g + ay_g * ay_g + az_g * az_g;

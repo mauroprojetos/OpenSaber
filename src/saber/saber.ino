@@ -554,7 +554,7 @@ void processAccel(uint32_t msec)
         float az = data[i].az;
         calcGravity2(ax, ay, az, &g2, &g2Normal);
 
-        accelSpeed.push(ax, az, az, 100);   // FIXME: 100 should be queried from accelerometer
+        accelSpeed.push(ax, ay, az, 10);   // FIXME: 100 should be queried from accelerometer
 
         if (bladeState.state() == BLADE_ON) {
             maxGForce2 = max(maxGForce2, g2);
@@ -622,7 +622,16 @@ void loop() {
 
     processAccel(msec);
     if (debugTimer.tick(delta) && bladeState.state() != BLADE_OFF) {
-        Log.p("AccelSpeed speed=").p(accelSpeed.speed()).p(" mix=").p(accelSpeed.mix()).p(" vol=").p(accelSpeed.swingVolume()).eol();
+        Log.
+            p("AccelSpeed speed=").p(accelSpeed.speed()).
+            p(" speed2=").p(accelSpeed.speed2()).
+            p(" mix=").p(accelSpeed.mix()).
+            p(" vol=").p(accelSpeed.swingVolume()).
+            p(" a2=").p(accelSpeed.accel2()).
+            p(" vx=").p(accelSpeed.velX()).
+            p(" vy=").p(accelSpeed.velY()).
+            p(" vz=").p(accelSpeed.velZ()).
+            eol();
     }
 
     buttonA.process();
