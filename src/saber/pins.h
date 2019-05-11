@@ -56,8 +56,8 @@ SOFTWARE.
 #define SABER_SUB_MODEL_STANDARD    4
 
 // ----------------------------------
-#define SERIAL_DEBUG 				0
-#define SABER_MODEL 				SABER_MODEL_TYVOKKA
+#define SERIAL_DEBUG 				1
+#define SABER_MODEL 				SABER_MODEL_TEST
 #define SABER_SUB_MODEL				SABER_SUB_MODEL_STANDARD
 // ----------------------------------
 
@@ -702,32 +702,26 @@ static const int32_t LOW_VOLTAGE 		= 3400;		// 3500 gets sketchy. By 3.4 we're w
 	static const int VOLUME_4 = 204;
 
 #elif (SABER_MODEL == SABER_MODEL_TEST)
-	#define PCB_VERSION 			PCB_ITSY_1C
+	#define PCB_VERSION 				PCB_ITSY_1C
 	#define SABER_SOUND_ON 			SABER_SOUND_FLASH
 	#define SABER_VOLTMETER			
 	#define SABER_BUTTON 			Button::INTERNAL_PULLUP
 	#define SABER_UI_LED			SABER_LED_DOTSTAR
+	#define NUM_AUDIO_CHANNELS 4
 
-	#define SABER_NUM_LEDS 			8
+	#define SABER_NUM_LEDS 			4
 	#define SABER_UI_START			0
-	#define SABER_UI_COUNT			6
-	// There are 32 leves of brightness, expressed from 0-256 in a step size of 8.
-	#define SABER_UI_BRIGHTNESS		16
-
+	#define SABER_UI_COUNT			4
+	#define SABER_UI_BRIGHTNESS	16		
 	#define SABER_UI_IDLE_MEDITATION
+	#define SABER_UI_REVERSE
 
-	#define SABER_CRYSTAL_START	    7
-	#define SABER_CRYSTAL_BRIGHTNESS 24
+	#define SABER_SOUND_DEF 		SABER_SOUND_DEF_BESPIN_JAINA
 
-	#define SABER_BLACK_START		6
-	#define SABER_BLACK_COUNT		1
+	static const int32_t UVOLT_MULT = 5000;	
+	#define ID_STR "Tyvokka Cree XPE2 RGB"
 
-	#define SABER_SOUND_DEF SABER_SOUND_DEF_BESPIN_ROGUE
-
-	static const int32_t UVOLT_MULT = 5019;	
-	#define ID_STR "Test Cree XPE2 RGB"
-
-	// Heat sink compound; copper TCSS heatsink.
+	// Heat sink compound; LED Supply advanced heat sink.
 	static const int32_t RED_VF   = 2200;   // milli-volts
 	static const int32_t RED_I    = 400;    // milli-amps
 	static const int32_t RED_R    = 4700;   // milli-ohms

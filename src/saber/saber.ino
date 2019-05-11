@@ -90,7 +90,6 @@ bool     flashOnClash   = false;
 float    maxGForce2     = 0.0f;
 uint32_t lastMotionTime = 0;    
 uint32_t lastLoopTime   = 0;
-uint32_t lastLoopMicros = 0;
 
 #ifdef LOG_ACCEL
 GrinlizLIS3DH::RawData accelDataBuf[LOG_ACCEL];
@@ -360,7 +359,6 @@ void setup() {
 
     EventQ.event("[saber start]");
     lastLoopTime = millis();    // so we don't get a big jump on the first loop()
-    lastLoopMicros = micros();
 
     #if defined(OVERRIDE_BOOT_SOUND)
         SFX::instance()->playUISound(OVERRIDE_BOOT_SOUND, false);
@@ -617,11 +615,8 @@ void loop() {
     processSerial();
 
     const uint32_t msec = millis();
-    const uint32_t microSec = micros();
     uint32_t delta = msec - lastLoopTime;
-    uint32_t deltaMicro = microSec - lastLoopMicros;
     lastLoopTime = msec;
-    lastLoopMicros = microSec;
 
     tester.process();
 
