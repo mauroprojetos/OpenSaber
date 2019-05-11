@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
     for (int i = 0; i < WIDTH; ++i) {
         int zone = i / ZONE_WIDTH;
 
-        AccelData ad = { {0, 0, 0}, 0, 0 };
+        AccelData ad = { {0, 0, 0}, 0 };
         int axis = (i / (ZONE_WIDTH * 2)) % 3;
 
         // There is always gravity, in an unknown orientation.
@@ -116,7 +116,6 @@ int main(int argc, char* argv[])
         ad.accel.y += -RANGE/2 + RANGE * (rand() % 100) * 0.01f;
         ad.accel.z += -RANGE/2 + RANGE * (rand() % 100) * 0.01f;
 
-        ad.g = sqrtf(ad.accel.x * ad.accel.x + ad.accel.y * ad.accel.y + ad.accel.z * ad.accel.z);
         ad.time = i * 10;
         data.push_back(ad);
     }
@@ -132,14 +131,13 @@ int main(int argc, char* argv[])
     memset(pixels, 0, sizeof(RGBA)*WIDTH*HEIGHT);
     AccelSpeed accelSpeed;
 
-    // timetamp
+    // time stamp
     for (uint32_t t = t0; t < t1; t += 100) {
         int x = WIDTH * (t - t0) / (t1 - t0);
         pixels[(HEIGHT/2)*WIDTH + x] = BLUE;
     }
 
     std::vector<float> speeds;
-    std::vector<float> dSpeeds;
     std::vector<float> mix;
 
     static const float GMAX = 4.0f;    // m/s2
@@ -169,9 +167,7 @@ int main(int argc, char* argv[])
             accelSpeed.push(data[i].accel.x, data[i].accel.y, data[i].accel.z, millis);
 
             speeds.push_back(accelSpeed.speed());
-            dSpeeds.push_back(accelSpeed.dSpeed());
             mix.push_back(accelSpeed.mix());
-            //mix.push_back(accelSpeed.swingVolume());
         }
     }
     // Speed
@@ -183,22 +179,6 @@ int main(int argc, char* argv[])
         if (y >= HEIGHT) y = HEIGHT - 1;
 
         pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
-    }
-
-    // dSpeed
-    for (size_t i = 0; i < speeds.size(); ++i) {
-        const AccelData& ad = data[i];
-        int x = WIDTH * (ad.time - t0) / (t1 - t0);
-        float RANGE = 20.0;  // m/2
-        int y = HEIGHT / 2 + int(dSpeeds[i] * (HEIGHT/2) / RANGE);
-
-        if (x >= WIDTH) x = WIDTH - 1;
-        if (y < 0) y = 0;
-        if (y >= HEIGHT) y = HEIGHT - 1;
-
-        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xaa;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].b = 0xaa;
         pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
     }
 
@@ -214,6 +194,17 @@ int main(int argc, char* argv[])
         pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
     }
     
+    for (size_t i = 0; i < mix.size(); i += 10) {
+        int x = WIDTH * (data[i].time - t0) / (t1 - t0);
+        int y = HEIGHT / 2 + int(1.0f * (HEIGHT / 4));
+        if (x >= WIDTH) x = WIDTH - 1;
+        if (y >= HEIGHT) y = HEIGHT - 1;
+
+        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].r = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
+    }
+
     // 1 m/s speed stamp
     for (float speed = 0; speed < VMAX; speed += 1.0f) {
         int y = int(HEIGHT * (speed - VMIN) / (VMAX - VMIN));

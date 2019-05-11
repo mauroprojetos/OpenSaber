@@ -11,9 +11,6 @@ public:
     // Current speed in m/s
     float speed() const { return m_speed; }
 
-    // Normal vector derivative of speed. In m/s.
-    float dSpeed() const { return m_dSpeed; }
-
     // mix of a to b, ranges from 0 to 1
     float mix() const { return m_mix; }
 
@@ -32,18 +29,12 @@ private:
         return v;
     }
 
-    void calcMix();
+    void calcMix(float dts);
 
     float vx = 0;
     float vy = 0;
     float vz = 0;
+    float m_a2 = 0;
     float m_speed = 0;
-
-    float m_speed1 = 0;
-    float m_dSpeed = 0;
-    float m_maxDSpeed = 0;
-    float m_minDSpeed = 0;
-
     float m_mix = 0;
-    float m_mix1 = 0;
 };
