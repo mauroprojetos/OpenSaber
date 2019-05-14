@@ -3,7 +3,7 @@
 #include <math.h>
 
 static const float G_LESS = 1.05f;
-static const float G_MORE = 1.1f;
+static const float G_MORE = 1.20f;
 static const float MOTION_MIN = 0.5f;    // m/s - used to clamp volume and mix
 static const float MOTION_MAX = 5.0f;    // m/s
 static const float ACCEL_TO_MIX = 0.6f;  // how quickly scalar accelerations causes a shift
