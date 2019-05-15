@@ -18,6 +18,7 @@ public:
     float swingVolume() const;
 
     float accel2() const { return m_a2; }
+    
     float velX() const { return vx; }
     float velY() const { return vy; }
     float velZ() const { return vz; }

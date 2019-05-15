@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2016 Lee Thomason, Grinning Lizard Software
+  Copyright (c) 2016-2019 Lee Thomason, Grinning Lizard Software
 
   Permission is hereby granted, free of charge, to any person obtaining a copy of
   this software and associated documentation files (the "Software"), to deal in
@@ -21,7 +21,7 @@
 */
 
 // #define PROFILE
-// #define LOG_ACCEL 1024*2
+#define LOG_ACCEL 1024*2
 
 // Arduino Libraries
 #ifdef CORE_TEENSY
@@ -507,7 +507,7 @@ void processSerial() {
 }
 
 
-void processAccel(uint32_t msec)
+void processAccel(uint32_t msec, uint32_t delta)
 {
     static ProfileData profData("processAccel");
     ProfileBlock block(&profData);
@@ -546,6 +546,8 @@ void processAccel(uint32_t msec)
     if (end - start > 3) Log.p("WARNING accel flush & read time (ms)=").p(end - start).eol();
     #endif
 
+    static int subCount = 0;
+
     for (int i = 0; i < n; ++i)
     {
         float g2Normal, g2;
@@ -554,7 +556,23 @@ void processAccel(uint32_t msec)
         float az = data[i].az;
         calcGravity2(ax, ay, az, &g2, &g2Normal);
 
-        accelSpeed.push(ax, ay, az, 10);   // FIXME: 100 should be queried from accelerometer
+        accelSpeed.push(ax, ay, az, 10);   // FIXME: 10 should be queried from accelerometer
+
+        if (++subCount == 20) {
+            subCount = 0;
+            #if 0
+            Log.
+                p("AccelSpeed speed=").p(accelSpeed.speed()).
+                p(" mix=").p(accelSpeed.mix()).
+                p(" vol=").p(accelSpeed.swingVolume()).
+                p(" vx=").p(accelSpeed.velX()).
+                p(" vy=").p(accelSpeed.velY()).
+                p(" vz=").p(accelSpeed.velZ()).
+                p(" ax=").p(ax).
+                p(" ayz=").p(sqrtf(ay*ay + az*az)).
+                eol();
+            #endif
+        }
 
         if (bladeState.state() == BLADE_ON) {
             maxGForce2 = max(maxGForce2, g2);
@@ -599,7 +617,7 @@ void processAccel(uint32_t msec)
             maxGForce2 = 1.0f;
         }
         #if NUM_AUDIO_CHANNELS == 4
-        sfx.setSmoothParams(FixedNorm(accelSpeed.mix()), FixedNorm(accelSpeed.swingVolume()));
+        sfx.setSmoothParams(accelSpeed.mix(), accelSpeed.swingVolume());
         #endif    
     }
 }
@@ -620,25 +638,11 @@ void loop() {
 
     tester.process();
 
-    processAccel(msec);
-    if (debugTimer.tick(delta) && bladeState.state() != BLADE_OFF) {
-        Log.
-            p("AccelSpeed speed=").p(accelSpeed.speed()).
-            p(" speed2=").p(accelSpeed.speed2()).
-            p(" mix=").p(accelSpeed.mix()).
-            p(" vol=").p(accelSpeed.swingVolume()).
-            p(" a2=").p(accelSpeed.accel2()).
-            p(" vx=").p(accelSpeed.velX()).
-            p(" vy=").p(accelSpeed.velY()).
-            p(" vz=").p(accelSpeed.velZ()).
-            eol();
-    }
-
     buttonA.process();
     ledA.process();
 
     bladeState.process(&blade, saberDB, millis());
-    processAccel(msec);
+    processAccel(msec, delta);
     sfx.process();
 
     if (vbatTimer.tick(delta)) {

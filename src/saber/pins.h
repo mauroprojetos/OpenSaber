@@ -56,8 +56,8 @@ SOFTWARE.
 #define SABER_SUB_MODEL_STANDARD    4
 
 // ----------------------------------
-#define SERIAL_DEBUG 				0
-#define SABER_MODEL 				SABER_MODEL_TYVOKKA
+#define SERIAL_DEBUG 				1
+#define SABER_MODEL 				SABER_MODEL_TEST
 #define SABER_SUB_MODEL				SABER_SUB_MODEL_STANDARD
 // ----------------------------------
 

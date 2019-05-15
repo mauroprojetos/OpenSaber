@@ -71,7 +71,7 @@ class SFX
     bool playUISound(int n, bool prepandUIPath = true);
     void stopSound();
 
-    void setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume);
+    void setSmoothParams(float mixValue, float swingVolume);
 
     // The class of SFX (MOTION, IMPACT, etc) last successfully played.
     int lastSFX() const { return m_lastSFX; }

@@ -264,10 +264,10 @@ void SFX::addFile(const char* name, int index)
     }
 }
 
-void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
+void SFX::setSmoothParams(float mixValue, float swingVolume)
 {
     if(SMOOTH_SWING && m_bladeOn) {
-        if (swingVolume == 0 && m_prevSwingVolume != 0) {
+        /*if (swingVolume == 0 && m_prevSwingVolume != 0) {
             m_player->setVolume(m_masterVolume, IDLE_CHANNEL);
             m_player->setVolume(0, A_CHANNEL);
             m_player->setVolume(0, B_CHANNEL);
@@ -286,14 +286,18 @@ void SFX::setSmoothParams(FixedNorm mixValue, FixedNorm swingVolume)
             m_player->play(a.c_str(), true, A_CHANNEL);
             m_player->play(b.c_str(), true, B_CHANNEL);            
         }
-        else if (swingVolume > 0) {
-            FixedNorm one(1);
-            m_player->setVolume(((one - mixValue) * swingVolume).scale(m_masterVolume), A_CHANNEL);
-            m_player->setVolume(((mixValue) * swingVolume).scale(m_masterVolume), B_CHANNEL);
-            
-            FixedNorm humVolume = one - swingVolume * FixedNorm(3, 4);
-            m_player->setVolume(humVolume.scale(m_masterVolume), IDLE_CHANNEL);
-        }
+        else */
+        //if (swingVolume > 0) {
+            float humVolumeBase = 1.0f - swingVolume;
+            float chABase = swingVolume * (1.0f - mixValue);
+            float chBBase = swingVolume * mixValue;
+
+            //m_player->setVolume(int(masterVolume() * chABase), A_CHANNEL);
+            //m_player->setVolume(int(masterVolume() * chBBase), B_CHANNEL);
+            //m_player->setVolume(int(masterVolume() * humVolumeBase), IDLE_CHANNEL);
+            m_player->setVolume(int(masterVolume() * swingVolume), A_CHANNEL);
+            m_player->setVolume(0, IDLE_CHANNEL);
+        //}
     }
     m_prevSwingVolume = swingVolume;
 }
@@ -339,8 +343,14 @@ bool SFX::playSound(int sound, int mode)
         if (sound == SFX_POWER_ON) {
             randomFilePath(&path, SFX_IDLE);
             m_player->play(path.c_str(), true, IDLE_CHANNEL);
-            m_player->setVolume(0, 0);  // volume set correctly in process()
+            m_player->setVolume(0, IDLE_CHANNEL);  // volume set correctly in process()
             m_bladeOnTime = millis();
+
+            randomFilePath(&path, SFX_MOTION);
+            m_player->play(path.c_str(), true, A_CHANNEL);
+            m_player->play(path.c_str(), true, B_CHANNEL);
+            m_player->setVolume(0, A_CHANNEL);
+            m_player->setVolume(0, B_CHANNEL);
 
             randomFilePath(&path, sound);
             m_player->play(path.c_str(), false, EFFECT_CHANNEL);
