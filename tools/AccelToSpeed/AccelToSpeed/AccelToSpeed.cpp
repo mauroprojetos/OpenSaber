@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 
     std::vector<AccelData> data;
 #if 1
-    FILE* fp = fopen("lad_0.txt", "r");
+    FILE* fp = fopen("lad_2.txt", "r");
     if (!fp) {
         printf("Could not apen data file\n");
         SDL_Quit();
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     char buf[256];
 
     uint32_t t = 0;
-    static const int limit = 1700;
+    static const int limit = 1500;
     while (fgets(buf, 255, fp)) {
         if (data.size() >= limit) break;
         char* p = strtok(buf, " ");
@@ -141,9 +141,7 @@ int main(int argc, char* argv[])
     std::vector<float> mix;
 
     static const float GMAX = 4.0f;    // m/s2
-
-    static const float VMAX = 20.0f;
-    static const float VMIN = -20.0f;
+    static const float VMAX = 6.0f;
 
     static const float MIX_MAX = 2.0;
     static const float MIX_MIN = -2.0;
@@ -174,7 +172,7 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < speeds.size(); ++i) {
         const AccelData& ad = data[i];
         int x = WIDTH * (ad.time - t0) / (t1 - t0);
-        int y = int(HEIGHT * (speeds[i] - VMIN) / (VMAX - VMIN));
+        int y = int(HEIGHT * (speeds[i] + VMAX) / (2 * VMAX));
         if (x >= WIDTH) x = WIDTH - 1;
         if (y >= HEIGHT) y = HEIGHT - 1;
 
@@ -207,7 +205,7 @@ int main(int argc, char* argv[])
 
     // 1 m/s speed stamp
     for (float speed = 0; speed < VMAX; speed += 1.0f) {
-        int y = int(HEIGHT * (speed - VMIN) / (VMAX - VMIN));
+        int y = int(HEIGHT * (speed + VMAX) / (2 * VMAX));
         pixels[(HEIGHT - y - 1)*WIDTH] = GREEN;
     }
 
