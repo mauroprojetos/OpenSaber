@@ -32,6 +32,96 @@ static const RGBA GREEN = { 0, 255, 0, 255 };
 static const RGBA BLUE = { 0, 128, 255, 255 };
 static const bool CLIP = true;
 
+void render(RGBA* pixels, const std::vector<AccelData>& data)
+{
+    memset(pixels, 0, sizeof(RGBA)*WIDTH*HEIGHT);
+
+    uint32_t t0 = UINT32_MAX, t1 = 0;
+    for (size_t i = 0; i < data.size(); ++i) {
+        t0 = std::min(t0, data[i].time);
+        t1 = std::max(t1, data[i].time);
+    }
+    AccelSpeed accelSpeed;
+
+    // time stamp
+    for (uint32_t t = t0; t < t1; t += 100) {
+        int x = WIDTH * (t - t0) / (t1 - t0);
+        pixels[(HEIGHT / 2)*WIDTH + x] = BLUE;
+    }
+
+    std::vector<float> speeds;
+    std::vector<float> mix;
+
+    static const float GMAX = 4.0f;    // m/s2
+    static const float VMAX = 6.0f;
+
+    static const float MIX_MAX = 2.0;
+    static const float MIX_MIN = -2.0;
+
+    // Acceleration.
+    for (size_t i = 0; i < data.size(); ++i) {
+        const AccelData& ad = data[i];
+        int x = WIDTH * (ad.time - t0) / (t1 - t0);
+        float g = sqrtf(ad.accel.x*ad.accel.x + ad.accel.y*ad.accel.y + ad.accel.z*ad.accel.z);
+        int y = int(HEIGHT * (g - (-GMAX)) / (2.0f * GMAX));
+        if (x >= WIDTH) x = WIDTH - 1;
+        if (y >= HEIGHT) y = HEIGHT - 1;
+
+        assert(x >= 0 && x < WIDTH);
+        assert(y >= 0 && y < HEIGHT);
+
+        pixels[(HEIGHT - y - 1)*WIDTH + x] = RED;
+
+        if (i > 0) {
+            uint32_t millis = (data[i].time - data[i - 1].time);
+            accelSpeed.push(data[i].accel.x, data[i].accel.y, data[i].accel.z, millis);
+
+            speeds.push_back(accelSpeed.speed());
+            mix.push_back(accelSpeed.mix());
+        }
+    }
+    // Speed
+    for (size_t i = 0; i < speeds.size(); ++i) {
+        const AccelData& ad = data[i];
+        int x = WIDTH * (ad.time - t0) / (t1 - t0);
+        int y = int(HEIGHT * (speeds[i] + VMAX) / (2 * VMAX));
+        if (x >= WIDTH) x = WIDTH - 1;
+        if (y >= HEIGHT) y = HEIGHT - 1;
+
+        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
+    }
+
+    // Mix
+    for (size_t i = 0; i < mix.size(); ++i) {
+        int x = WIDTH * (data[i].time - t0) / (t1 - t0);
+        int y = HEIGHT / 2 + int(mix[i] * (HEIGHT / 4));
+        if (x >= WIDTH) x = WIDTH - 1;
+        if (y >= HEIGHT) y = HEIGHT - 1;
+
+        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].r = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
+    }
+
+    for (size_t i = 0; i < mix.size(); i += 10) {
+        int x = WIDTH * (data[i].time - t0) / (t1 - t0);
+        int y = HEIGHT / 2 + int(1.0f * (HEIGHT / 4));
+        if (x >= WIDTH) x = WIDTH - 1;
+        if (y >= HEIGHT) y = HEIGHT - 1;
+
+        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].r = 0xff;
+        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
+    }
+
+    // 1 m/s speed stamp
+    for (float speed = 0; speed < VMAX; speed += 1.0f) {
+        int y = int(HEIGHT * (speed + VMAX) / (2 * VMAX));
+        pixels[(HEIGHT - y - 1)*WIDTH] = GREEN;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -121,93 +211,9 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    uint32_t t0 = UINT32_MAX, t1 = 0;
-    for (size_t i = 0; i < data.size(); ++i) {
-        t0 = std::min(t0, data[i].time);
-        t1 = std::max(t1, data[i].time);
-    }
-
-    RGBA* pixels = new RGBA[WIDTH*HEIGHT];
-    memset(pixels, 0, sizeof(RGBA)*WIDTH*HEIGHT);
-    AccelSpeed accelSpeed;
-
-    // time stamp
-    for (uint32_t t = t0; t < t1; t += 100) {
-        int x = WIDTH * (t - t0) / (t1 - t0);
-        pixels[(HEIGHT/2)*WIDTH + x] = BLUE;
-    }
-
-    std::vector<float> speeds;
-    std::vector<float> mix;
-
-    static const float GMAX = 4.0f;    // m/s2
-    static const float VMAX = 6.0f;
-
-    static const float MIX_MAX = 2.0;
-    static const float MIX_MIN = -2.0;
-
-    // Acceleration.
-    for (size_t i = 0; i < data.size(); ++i) {
-        const AccelData& ad = data[i];
-        int x = WIDTH * (ad.time - t0) / (t1 - t0);
-        float g = sqrtf(ad.accel.x*ad.accel.x + ad.accel.y*ad.accel.y + ad.accel.z*ad.accel.z);
-        int y = int(HEIGHT * (g - (-GMAX)) / (2.0f * GMAX));
-        if (x >= WIDTH) x = WIDTH - 1;
-        if (y >= HEIGHT) y = HEIGHT - 1;
-
-        assert(x >= 0 && x < WIDTH);
-        assert(y >= 0 && y < HEIGHT);
-
-        pixels[(HEIGHT - y - 1)*WIDTH + x] = RED;
-   
-        if (i > 0) {
-            uint32_t millis = (data[i].time - data[i - 1].time);
-            accelSpeed.push(data[i].accel.x, data[i].accel.y, data[i].accel.z, millis);
-
-            speeds.push_back(accelSpeed.speed());
-            mix.push_back(accelSpeed.mix());
-        }
-    }
-    // Speed
-    for (size_t i = 0; i < speeds.size(); ++i) {
-        const AccelData& ad = data[i];
-        int x = WIDTH * (ad.time - t0) / (t1 - t0);
-        int y = int(HEIGHT * (speeds[i] + VMAX) / (2 * VMAX));
-        if (x >= WIDTH) x = WIDTH - 1;
-        if (y >= HEIGHT) y = HEIGHT - 1;
-
-        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
-    }
-
-    // Mix
-    for (size_t i = 0; i < mix.size(); ++i) {
-        int x = WIDTH * (data[i].time - t0) / (t1 - t0);
-        int y = HEIGHT / 2 + int(mix[i] * (HEIGHT / 4));
-        if (x >= WIDTH) x = WIDTH - 1;
-        if (y >= HEIGHT) y = HEIGHT - 1;
-
-        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].r = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
-    }
     
-    for (size_t i = 0; i < mix.size(); i += 10) {
-        int x = WIDTH * (data[i].time - t0) / (t1 - t0);
-        int y = HEIGHT / 2 + int(1.0f * (HEIGHT / 4));
-        if (x >= WIDTH) x = WIDTH - 1;
-        if (y >= HEIGHT) y = HEIGHT - 1;
-
-        pixels[(HEIGHT - y - 1)*WIDTH + x].g = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].r = 0xff;
-        pixels[(HEIGHT - y - 1)*WIDTH + x].a = 0xff;
-    }
-
-    // 1 m/s speed stamp
-    for (float speed = 0; speed < VMAX; speed += 1.0f) {
-        int y = int(HEIGHT * (speed + VMAX) / (2 * VMAX));
-        pixels[(HEIGHT - y - 1)*WIDTH] = GREEN;
-    }
+    RGBA* pixels = new RGBA[WIDTH*HEIGHT];
+    render(pixels, data);
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     assert(ren);
@@ -218,9 +224,25 @@ int main(int argc, char* argv[])
     SDL_Event e;
 
     while (true) {
-        SDL_PollEvent(&e);
-        if (e.type == SDL_QUIT) {
-            break;
+        int nEvent = SDL_PollEvent(&e);
+        if (nEvent) {
+            if (e.type == SDL_QUIT) {
+                break;
+            }
+            else if (e.type == SDL_KEYDOWN) {
+                if (e.key.repeat == 0) {
+                    if (e.key.keysym.scancode == SDL_SCANCODE_UP)
+                        AccelSpeed::setDragRate(AccelSpeed::getDragRate() + 0.05f);
+                    if (e.key.keysym.scancode == SDL_SCANCODE_DOWN)
+                        AccelSpeed::setDragRate(AccelSpeed::getDragRate() - 0.05f);
+
+                    if (e.key.keysym.scancode == SDL_SCANCODE_RIGHT)
+                        AccelSpeed::setDragMore(AccelSpeed::getDragMore() + 0.05f);
+                    if (e.key.keysym.scancode == SDL_SCANCODE_LEFT)
+                        AccelSpeed::setDragMore(AccelSpeed::getDragMore() - 0.05f);
+                    render(pixels, data);
+                }
+            }
         }
         SDL_RenderClear(ren);
         SDL_UpdateTexture(texture, 0, pixels, WIDTH*sizeof(RGBA));
