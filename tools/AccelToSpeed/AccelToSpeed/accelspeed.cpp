@@ -2,13 +2,13 @@
 #include <assert.h>
 #include <math.h>
 
-static const float DRAG_LESS = 1.05f;
+static const float DRAG_LESS = 1.05f;    // m2/s lower end of drag (slightly higher than gravity)
 static const float MOTION_MIN = 0.5f;    // m/s - used to clamp volume and mix
 static const float MOTION_MAX = 5.0f;    // m/s
 static const float ACCEL_TO_MIX = 0.8f;  // how quickly scalar accelerations causes a shift
 
-float AccelSpeed::DRAG_RATE = 0.3f;
-float AccelSpeed::DRAG_MORE = 1.25f;
+float AccelSpeed::DRAG_RATE = 0.3f;      // how fast drag goes from DRAG_LESS to DRAG_MORE
+float AccelSpeed::DRAG_MORE = 1.25f;     // m2/s top drag (scaled up by DRAG_RATE)
 
 AccelSpeed::AccelSpeed()
 {
@@ -53,8 +53,8 @@ void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis)
     vy = vy + ay_g * dts * G;
     vz = vz + az_g * dts * G;
 
-    m_speed2 = vx * vx + vy * vy + vz * vz;
-    m_speed = sqrtf(m_speed2);
+    float speed2 = vx * vx + vy * vy + vz * vz;
+    m_speed = sqrtf(speed2);
     calcMix(dts);
 
     // Oppose velocity with acceleration equal to G

@@ -10,11 +10,11 @@ public:
 
     // Current speed in m/s
     float speed() const { return m_speed; }
-    float speed2() const { return m_speed2; }
 
     // mix of a to b, ranges from 0 to 1
     float mix() const { return m_mix; }
 
+    // Volume of the swing, ranges from 0 to 1
     float swingVolume() const;
 
     float accel2() const { return m_a2; }
@@ -48,7 +48,6 @@ private:
     float vz = 0;
     float m_a2 = 0;
     float m_speed = 0;
-    float m_speed2 = 0;
     float m_mix = 0;
     float m_gDrag = 1.0f;
 
