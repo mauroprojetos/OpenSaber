@@ -23,6 +23,11 @@ public:
     float velY() const { return vy; }
     float velZ() const { return vz; }
 
+    static float getDragMore() { return DRAG_MORE;  }
+    static void setDragMore(float v) { DRAG_MORE = v; }
+    static float getDragRate() { return DRAG_RATE; }
+    static void setDragRate(float v) { DRAG_RATE = v; }
+
 private:
     template<class T> T Max(const T& a, const T& b) const {
         return a > b ? a : b;
@@ -45,4 +50,9 @@ private:
     float m_speed = 0;
     float m_speed2 = 0;
     float m_mix = 0;
+    float m_gDrag = 1.0f;
+
+    static float DRAG_RATE;
+    static float DRAG_MORE;
+
 };

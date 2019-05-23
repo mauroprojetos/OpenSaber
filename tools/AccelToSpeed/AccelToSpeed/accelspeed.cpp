@@ -1,7 +1,6 @@
 #include "accelspeed.h"
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 
 static const float DRAG_LESS = 1.05f;
 static const float MOTION_MIN = 0.5f;    // m/s - used to clamp volume and mix

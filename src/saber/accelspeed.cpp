@@ -2,11 +2,13 @@
 #include <assert.h>
 #include <math.h>
 
-static const float G_LESS = 1.05f;
-static const float G_MORE = 1.50f;
+static const float DRAG_LESS = 1.05f;
 static const float MOTION_MIN = 0.5f;    // m/s - used to clamp volume and mix
-static const float MOTION_MAX = 2.0f;    // m/s
-static const float ACCEL_TO_MIX = 0.6f;  // how quickly scalar accelerations causes a shift
+static const float MOTION_MAX = 5.0f;    // m/s
+static const float ACCEL_TO_MIX = 0.8f;  // how quickly scalar accelerations causes a shift
+
+float AccelSpeed::DRAG_RATE = 0.3f;
+float AccelSpeed::DRAG_MORE = 1.25f;
 
 AccelSpeed::AccelSpeed()
 {
@@ -55,22 +57,22 @@ void AccelSpeed::push(float ax_g, float ay_g, float az_g, uint32_t deltaMillis)
     m_speed = sqrtf(m_speed2);
     calcMix(dts);
 
-    float g2 = ax_g * ax_g + ay_g * ay_g + az_g * az_g;
-    bool more = (g2 > 0.7) && (g2 < 1.4);
-
     // Oppose velocity with acceleration equal to G
     if (m_speed != 0) {
-        float gDrag = more ? G_MORE : G_LESS;
-        float speedDrag = gDrag * G * dts;
+        float speedDrag = m_gDrag * G * dts;
 
         if (m_speed <= speedDrag) {
             vx = vy = vz = 0;
             m_mix = 0;
+            m_gDrag = DRAG_LESS;
         }
         else {
             vx += -speedDrag * (vx / m_speed);
             vy += -speedDrag * (vy / m_speed);
             vz += -speedDrag * (vz / m_speed);
+
+            m_gDrag += dts * DRAG_RATE;
+            if (m_gDrag > DRAG_MORE) m_gDrag = DRAG_MORE;
         }
     }
 }
