@@ -3,9 +3,9 @@ use <baffles.scad>
 
 // TODO: unify the OledHolder and the PCB holder
 
-Z_BATTERY           =  68;
-Z_PADDED_BATTERY    =  Z_BATTERY + 1;
-D_BATTERY           =  18.50 + 0.5;    // An 1850. Huh. 
+Z_BATTERY_18650     = 65 + 4;
+Z_BATTERY_18500     = 50 + 4;
+D_BATTERY           = 18.50 + 0.5;    // An 1850. Huh. 
 
 D_SWITCH            =  12.5;     // actually 12, by thread.
 D_SWITCH_SUPPORT    =  16;
@@ -63,49 +63,36 @@ module columnY(dx, dyFrom0, dz, diameter, baseDX=0, baseDZ=0)
     }
 }
 
-module tjoint(outer, dz, trim)
+module tjoint(outer, dz, trim0, trim1)
 {
     RATIO = 0.40; 
     DY = outer * RATIO;
     HALFY = DY * 0.7;
 
-    translate([0, -HALFY/2 + trim, 0]) 
-        cube(size=[outer*2.0, HALFY - trim*2, dz]);
-    translate([0, -DY/2 + trim, dz/2 + trim/2]) 
-        cube(size=[outer*2.0, DY - trim*2, dz/2 - trim]);
+    translate([0, -HALFY/2 - trim0, 0]) 
+        cube(size=[outer*2.0, HALFY + trim0*2, dz]);
+    translate([0, -DY/2 - trim1, dz/2 - trim0/2]) 
+        cube(size=[outer*2.0, DY + trim1*2, dz/2 + trim0]);
 }
 
 /*
     The green-sky version of the key joint was large, but
-    secure. Problematic is that it click together on the y
-    axis so it's hard to run the wires.
+    secure. Problematic is that it clicked together on the y
+    axis so it's hard to run the wires. The jJoint=true version
+    is by far the more successful design.
 */
-module keyJoint(dz, do, di, trim, angle=0, tJoint=false)
+module keyJoint(dz, do, di, slot, angle=0)
 {
-    if (tJoint) {
-        intersection() {
-            tube(h=dz - trim, do=do, di=di);
-            union() {
-                rotate([0, 0, angle]) 
-                    tjoint(do, dz, trim);
-                rotate([0, 0, 180-angle]) 
-                    tjoint(do, dz, trim);
-            }
-        }
-    }
-    else
-    {
-        RATIO = 0.15; 
-        intersection() {
-            tube(h=dz - trim, do=do, di=di);
-            union() {
-                rotate([0, 0, angle]) 
-                    translate([0, -do*RATIO, 0])
-                        cube(size=[do*2.0, do*RATIO*2, dz]);
-                rotate([0, 0, 180-angle]) 
-                    translate([0, -do*RATIO, 0])
-                        cube(size=[do*2.0, do*RATIO*2, dz]);
-            }
+    trim0 = slot ? 0.1 : 0;
+    trim1 = slot ? 0.4 : 0;
+
+    intersection() {
+        tube(h=dz, do=do, di=di);
+        union() {
+            rotate([0, 0, angle]) 
+                tjoint(do, dz, trim0, trim1);
+            rotate([0, 0, 180-angle]) 
+                tjoint(do, dz, trim0, trim1);
         }
     }
 }
@@ -225,9 +212,13 @@ module bridge(dx, dy, dz, inset=0)
 }
 
 // Physical components. ----------------------
-module battery(outer) {
+
+function zBattery(type) = (type == "18500") ? Z_BATTERY_18500 : Z_BATTERY_18650;
+
+module battery(outer, type) {
+    dz = zBattery(type);
     color("yellow") translate([0, outer/2 - D_BATTERY/2, 0]) {
-        cylinder(d=D_BATTERY, h = Z_BATTERY + EPS2);
+        cylinder(d=D_BATTERY, h = dz + EPS2);
     }
 }
 
@@ -427,33 +418,29 @@ module oneBaffle(   d,
                     battery=true,       // space for the battery
                     mc=true,            // space for the microcontroller
                     bridge=1,           // create a bridge to the next baffle. designed to print w/o support material. 
-                    mcSpace=false,      // lots of space for the microcontroller
                     dExtra=0,           // additional diameter
                     scallop=false,      // outside curves
-                    cutout=true,        // bottom cutout 
-                    mcWide=0,           // for mc with "wide" top, set the upper width
-                    cutoutHigh=true)    // open space to the top
+                    noBottom=true,      // bottom cutout 
+                    cutoutHigh=true,    // open space to the top
+                    bottomRail=true,    // bridge must be >0 for a bottom rail
+                    conduit=false
+                    )     
 {
     yMC = -yAtX(X_MC/2, d/2) + 1.0;
 
     difference() {
         cylinder(h=dz, d=d + dExtra);
         if (battery) {
-            battery(d);
-
-            // Debatable if this should be its
-            // own option. Removes area below battery.
-            translate([-TROUGH_1/2, -5, -EPS]) 
-                cube(size=[TROUGH_1, 5, dz + EPS2]);
+            translate([0, 0, -EPS]) battery(d);
         }
+        translate([-TROUGH_1/2, -5, -EPS]) 
+            cube(size=[TROUGH_1, 5, dz + EPS2]);
 
         if (mc) {
             translate([0, yMC, -EPS]) 
-                mc(widePart=mcWide);
+                mc();
         }
-        if (mcSpace)
-            translate([-X_MC/2, DY_MC, -EPS])
-                cube(size=[X_MC, 20, dz+EPS2]);
+
         if (scallop) {
             TUNE_X = 1.2;
             TUNE_D = 1.6;
@@ -470,9 +457,23 @@ module oneBaffle(   d,
                 cube(size=[TROUGH_0, 30, dz + EPS2]);
         }
 
-        if (cutout) {
+        if (noBottom) {
             translate([-TROUGH_2/2, -20, -EPS])
                 cube(size=[TROUGH_2, 15, dz + EPS2]);
+        }
+
+        if (conduit) {
+            // Easy wiring, stops battery
+            translate([0, 0, -EPS]) {
+                hull() {
+                    //translate([0, d*0.00, 0]) 
+                    //    cylinder(h=dz+EPS2, d = d * 0.6);
+                    translate([0, -d*0.1, 0]) 
+                        cylinder(h=dz+EPS2, d = d * 0.6);
+                }
+                translate([-TROUGH_0/2, 0]) 
+                    cube(size=[TROUGH_0, 30, dz + EPS2]);
+            }
         }
     }
 
@@ -500,8 +501,10 @@ module oneBaffle(   d,
                     bridge3(d, dz);
             }
         }
-        oneBaffleBottonRail(d, dz);
-        mirror([1,0,0]) oneBaffleBottonRail(d, dz);
+        if (bottomRail) {
+            oneBaffleBottonRail(d, dz);
+            mirror([1,0,0]) oneBaffleBottonRail(d, dz);
+        }
     }
 }
 
@@ -605,23 +608,25 @@ module switchRing(diameter, t, dz, dzToSwitch)
     }
 }
 
-function nBafflesNeeded(dzButtress) = ceil(Z_PADDED_BATTERY / (dzButtress*2));
+function nBafflesNeeded(dzButtress, type) = ceil(zBattery(type) / (dzButtress*2));
 
 function zLenOfBaffles(n, dzButtress) = n * dzButtress * 2 - dzButtress;
 
 module baffleMCBattery( outer,          // outer diameter 
                         n,              // number of baffles 
                         dzButtress,     // thickness of the baffle
+                        nPostBaffles=0,// number of additional baffles, that don't have the battery cutout
                         dFirst=0,       // make the back baffle this diameter (0 to use standard)
                         dzFirst=0,      // make the back baffle this thicknes  (0 to use standard)
                         extraBaffle=0,  // add this much to the front baffle
-                        mcWide=0,       // set this for a wide top board
                         bridgeInFront=false,    // set true to contiue bridge. Useful for attaching to a cap.
                         bridgeStyle = 1
                     )
 {
-    for(i=[0:n-1]) {
-        translate([0, 0, i*dzButtress*2]) 
+    totalN = n + nPostBaffles;
+    for(i=[0:totalN-1]) {
+        translate([0, 0, i*dzButtress*2])  {
+            hasBattery = i < n;
             if (i==0 && dFirst > 0 && dzFirst > 0) {
                 // First baffle can "overflow" decause of
                 // the larger diameter. Use an intersection()
@@ -629,20 +634,21 @@ module baffleMCBattery( outer,          // outer diameter
                 intersection() {
                     cylinder(h=dzButtress*2, d=dFirst);
                     oneBaffle(outer, dzFirst, 
+                            battery=hasBattery,
                             dExtra=dFirst - outer, 
-                            mcWide=mcWide, 
                             bridge=bridgeStyle);
                 }
             }
             else {
                 oneBaffle(outer, dzButtress, 
-                    bridge=bridgeInFront || (i < n-1) ? bridgeStyle : 0, 
-                    mcWide=mcWide);
+                    battery=hasBattery,
+                    bridge=bridgeInFront || (i < totalN-1) ? bridgeStyle : 0);
             }
+        }
     }
     if (extraBaffle) {
         translate([0, 0, (n*2 - 1) * dzButtress]) {
-            oneBaffle(outer, extraBaffle, bridge=0, mcWide=mcWide);
+            oneBaffle(outer, extraBaffle, bridge=0);
         }
     }
 }
@@ -672,32 +678,43 @@ module pcbPillar() {
     dz: length of the section
     dzToPCB: delta to where the pcb start
     dyPCB: y delta to PCB bottom.
-    size[3]: outer size of the pcb
+    size[3]: outer size of the pcb.
+        x and z are obvious
+        y will do a cut above, if > 0
     mount: array of:
         x location, z location, "pillar" or "buttress"
     makeSection: if true, this is a section of the saber, else
                  just the basic parts are generated.
     sizePad: pad the size to make it fit more easily
+    angle: rotation of the pcb
 */
 module pcbHolder(outer, t, dz, dzToPCB, dyPCB, size, mount, 
-    makeSection=true, sizePad=0, holeAccess=false)
+    makeSection=true, sizePad=0, holeAccess=false, angle=0)
 {
     difference() 
     {
         union() {
-            if (makeSection)
-               tube(h=dz, do=outer, di=outer-t);
-
+            if (makeSection) {
+                difference() {
+                    tube(h=dz, do=outer, di=outer-t);
+                    translate([-size[0]/2 - sizePad, dyPCB, dzToPCB - sizePad]) 
+                        cube(size=[size[0] + 2 * sizePad, size[1], size[2] + 2 * sizePad]);
+                }
+            }
 
             for(m = mount) {
                 intersection() {
-                    translate([0, 0, -20]) cylinder(h=dz+40, d=outer ? outer : 100);
+                    translate([0, 0, -20]) 
+                        cylinder(h=dz+40, d=outer ? outer : 100);
 
+                    translate([0, dyPCB, dz/2])
+                    rotate([angle, 0, 0])
+                    translate([0, 0, -dz/2])
                     color("plum") union() {
                         x = m[0];
                         z = m[1];
                         type = m[2];
-                        translate([x, dyPCB, dzToPCB + z]) 
+                        translate([x, 0, dzToPCB + z]) 
                         {
                             if (type == "pillar") {
                                 pcbPillar();
@@ -715,9 +732,7 @@ module pcbHolder(outer, t, dz, dzToPCB, dyPCB, size, mount,
                 }
             }
         }
-        translate([-size[0]/2 - sizePad, dyPCB, dzToPCB - sizePad]) 
-            cube(size=[size[0] + 2 * sizePad, size[1], size[2] + 2 * sizePad]);
-        if (holeAccess == true) {
+        if (holeAccess == true && angle == 0) {
             for(m = mount) {
                 x = m[0];
                 z = m[1];
@@ -837,8 +852,16 @@ module emitterBase(d)
     Render the front (1", typically) mount for the advanced LED,
     port, and switch. Designed to be printed z-axis up, with
     minimal support.
+
+    Note on advanced heat sink:
+    Len (housing) = 22.8mm
+    Len (theard) = 10.0mm
+    
 */
-module forwardAdvanced(d, dz, overlap, outer, dzToPort, dzToSwitch)
+module forwardAdvanced(d, dz, 
+    overlap,    // if the length (backward) of the overlap area
+    outer,      // diameter of overlap ring
+    dzToPort, dzToSwitch)
 {
     LED_DZ = 10.0;    
     D_INNER = dynamicHeatSinkThread();
@@ -871,10 +894,12 @@ module forwardAdvanced(d, dz, overlap, outer, dzToPort, dzToSwitch)
             }
 
             // overlap ring
-            translate([0, 0, -overlap]) {
-                difference() {
-                    cylinder(h=overlap, d=outer);
-                    //cylinder(h=overlap, d1=DIAMETER, d2=D_INNER);
+            if (overlap) {
+                translate([0, 0, -overlap]) {
+                    difference() {
+                        cylinder(h=overlap, d=outer);
+                        //cylinder(h=overlap, d1=DIAMETER, d2=D_INNER);
+                    }
                 }
             }
         }
@@ -909,3 +934,29 @@ module forwardAdvanced(d, dz, overlap, outer, dzToPort, dzToSwitch)
         }
     }
 }
+
+
+
+/*
+module oneBaffle(   d,
+                    dz,
+                    battery=true,       // space for the battery
+                    mc=true,            // space for the microcontroller
+                    bridge=1,           // create a bridge to the next baffle. designed to print w/o support material. 
+                    dExtra=0,           // additional diameter
+                    scallop=false,      // outside curves
+                    noBottom=true,      // bottom cutout 
+                    cutoutHigh=true     // open space to the top
+
+*/
+
+$fn = 80;
+oneBaffle(30, 4, 
+    battery=false,
+    mc=false,
+    bridge=1,
+    noBottom=false,
+    cutoutHigh=false,
+    conduit=true);
+
+//translate([0, 0, 1]) battery(30);

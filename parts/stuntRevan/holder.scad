@@ -1,45 +1,57 @@
-include <dim.scad>
 use <../shapes.scad>
 use <../commonUnified.scad>
 
-Y_POWER = -yAtX(DX_POWER/2, D_AFT/2) + 1;
+DX_POWER = 11;
+DY_POWER = 9;
+DZ_POWER = 14;
+DY_PCB = 0;
+Z_OFFSET = 3;
 
-ROT = ACCESS_PCB ? -25 : 0;
-Y_TWEAK = ACCESS_PCB ? -5 : 2;
-
-PCB_DX = 17.5;  // a bit of padding
+// Version v1b
+W_PCB = 17.78;  // exact size
+C_PCB = -W_PCB/2;
+PCB_DX = 17.9;  // a bit of padding
 PCB_DZ = 29.5;
-T_BATT_STOP = 3;
 
-module holder() {    
+T_BATT_STOP = 3;
+JOINT_T = 3;
+JOINT_DZ = 8;
+
+ROT = -10;
+Y_TWEAK = -1;
+
+module holder(diameter, dzPCB) {    
+    Y_POWER = -yAtX(DX_POWER/2, diameter/2) + 1;
+
     difference() {
         intersection() {
-            cylinder(h=DZ_PCB, d=D_AFT);
+            cylinder(h=dzPCB, d=diameter);
             union() {    
-                tube(h=DZ_PCB-T_BATT_STOP, do=D_AFT, di=D_AFT - 4);
+                difference() {
+                    tube(h=dzPCB-T_BATT_STOP, do=diameter, di=diameter - 4);
+                    translate([-PCB_DX/2, DY_PCB, 0]) 
+                        cube(size=[PCB_DX, 50, dzPCB-T_BATT_STOP]);
+                }
                 
-                WPCB = 17.145;  // exact size
-                C = -WPCB/2;
-
                 translate([0, Y_TWEAK, 0]) rotate([ROT, 0, 0]) 
                 pcbHolder(0, 
                         4, 
-                        DZ_PCB,   // dz
+                        dzPCB,   // dz
                         Z_OFFSET,    // dz to pcb
                         DY_PCB,    // dy pcb
                         [PCB_DX, 50, PCB_DZ],
                         [
-                            [C+2.54, 2.54, "buttress" ],     // d=2.2
-                            [C+2.54, 26.67, "buttress" ],     // d=2.2
-                            [C+14.605, 2.54, "buttress" ],     // d=2.2
-                            [C+14.605, 26.67, "buttress" ],     // d=2.2
+                            [C_PCB + 2.54, 2.54, "buttress" ],     // d=2.2
+                            [C_PCB + 2.54, 26.67, "buttress" ],     // d=2.2
+                            [C_PCB + 15.24, 2.54, "buttress" ],     // d=2.2
+                            [C_PCB + 15.24, 26.67, "buttress" ],     // d=2.2
                         ],
                         makeSection=false
                 );
 
                 // Battery stop.
-                translate([0, 0, DZ_PCB-T_BATT_STOP]) 
-                    oneBaffle(D_AFT, T_BATT_STOP, battery=false, mc=false, bridge=0, noBottom=false, bottomRail=false, conduit=true);
+                translate([0, 0, dzPCB-T_BATT_STOP]) 
+                    oneBaffle(diameter, T_BATT_STOP, battery=false, mc=false, bridge=0, noBottom=false, bottomRail=false, conduit=true);
 
                 translate([DX_POWER/2, Y_POWER, 0]) 
                     cube(size=[4, DY_POWER, DZ_POWER]);
@@ -51,16 +63,13 @@ module holder() {
             }
         }
 
-        translate([-PCB_DX/2, DY_PCB, 0]) 
-            cube(size=[PCB_DX, 50, DZ_PCB-T_BATT_STOP]);
-
         translate([-DX_POWER/2, Y_POWER, 0]) {
             cube(size=[DX_POWER, DY_POWER, DZ_POWER]);
             translate([0, 1.5, 0])
                 cube(size=[DX_POWER, DY_POWER-1.5, 100]);
         }
-        translate([0, 0, DZ_PCB]) mirror([0, 0, -1]) 
-            keyJoint(JOINT_DZ, D_AFT, D_AFT - JOINT_T, true, 0);    
+        translate([0, 0, dzPCB]) mirror([0, 0, -1]) 
+            keyJoint(JOINT_DZ, diameter, diameter - JOINT_T, true, 0);    
 
     }
     *color("green") translate([0, Y_TWEAK, 0])  rotate([ROT, 0, 0]) 

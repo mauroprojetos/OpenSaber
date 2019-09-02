@@ -223,4 +223,11 @@ typedef FixedT<int32_t, int16_t, 6> Fixed115;
 
 // Good for [1, -1] type functions, general near one.
 typedef FixedT<int32_t, int16_t, 12> FixedNorm;
+
+template<typename FIXED>
+struct Vector3F
+{
+    FIXED x, y, z;
+};
+
 #endif // FIXED_16_INCLUDED
